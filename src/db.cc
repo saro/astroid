@@ -873,6 +873,11 @@ namespace Astroid {
 
     db->on_thread (thread_id, [&](notmuch_thread_t * nm_thread)
       {
+        if (nm_thread == NULL) {
+          LOG (error) << "nmt: thread not found: " << thread_id;
+          return;
+        }
+
         notmuch_messages_t * qmessages;
         notmuch_message_t  * message;
 
