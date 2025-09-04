@@ -1392,8 +1392,17 @@ void AstroidExtension::insert_attachments (
   }
 
   if (attachments > 0) {
-    webkit_dom_node_append_child (WEBKIT_DOM_NODE (div_message),
-        WEBKIT_DOM_NODE (attachment_container), (err = NULL, &err));
+    WebKitDOMHTMLElement * email_container =
+      DomUtils::select (WEBKIT_DOM_NODE (div_message), ".email_container");
+    WebKitDOMHTMLElement * body =
+      DomUtils::select (WEBKIT_DOM_NODE (email_container), ".body");
+
+    webkit_dom_node_insert_before (WEBKIT_DOM_NODE (email_container),
+        WEBKIT_DOM_NODE (attachment_container), WEBKIT_DOM_NODE (body),
+        (err = NULL, &err));
+
+    g_object_unref (body);
+    g_object_unref (email_container);
   }
 
   g_object_unref (attachment_template);
