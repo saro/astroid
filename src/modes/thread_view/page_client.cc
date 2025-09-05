@@ -14,6 +14,7 @@
 # include <iostream>
 # include <thread>
 # include <algorithm>
+# include <vector>
 
 # include "astroid.hh"
 # include "build_config.hh"
@@ -516,6 +517,7 @@ namespace Astroid {
     }
 
     /* add attachments */
+    std::vector<MessageState::Element> attachment_elements;
     for (refptr<Chunk> &c : m->attachments ()) {
 
       auto _c = msg.add_attachments ();
@@ -532,10 +534,16 @@ namespace Astroid {
       }
 
       if (!keep_state) {
-        // add attachment to message state
-        MessageState::Element e (MessageState::ElementType::Attachment, c->id);
-        thread_view->state[m].elements.push_back (e);
+        // collect attachment elements to insert before body
+        attachment_elements.emplace_back (MessageState::ElementType::Attachment,
+                                          c->id);
       }
+    }
+
+    if (!keep_state && !attachment_elements.empty ()) {
+      auto &elems = thread_view->state[m].elements;
+      elems.insert (elems.begin () + 1,
+                    attachment_elements.begin (), attachment_elements.end ());
     }
 
     return msg;
