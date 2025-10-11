@@ -728,6 +728,12 @@ namespace Astroid {
 
     db->on_thread (thread_id, [&](notmuch_thread_t * nm_thread)
       {
+        if (nm_thread == NULL) {
+          LOG (error) << "nm: could not find thread " << thread_id << " to add tag.";
+          res = false;
+          return;
+        }
+
         if (find(tags.begin (), tags.end (), tag) == tags.end ()) {
           /* get messages from thread */
           notmuch_messages_t * qmessages;
@@ -788,6 +794,11 @@ namespace Astroid {
     bool res = true;
     db->on_thread (thread_id, [&](notmuch_thread_t * nm_thread)
       {
+        if (nm_thread == NULL) {
+          LOG (error) << "nm: could not find thread " << thread_id << " to remove tag.";
+          res = false;
+          return;
+        }
 
         if (find(tags.begin (), tags.end (), tag) != tags.end ()) {
 
@@ -873,6 +884,10 @@ namespace Astroid {
 
     db->on_thread (thread_id, [&](notmuch_thread_t * nm_thread)
       {
+        if (nm_thread == NULL) {
+          return;
+        }
+
         notmuch_messages_t * qmessages;
         notmuch_message_t  * message;
 

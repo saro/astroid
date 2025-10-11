@@ -159,17 +159,23 @@ namespace Astroid {
     }
 
     /* read message */
-    buffer.resize (msg_sz);
-    try {
-      s = istream->read_all (buffer.data(), msg_sz, read, reader_cancel);
-    } catch (Gio::Error &ex) {
-      LOG (error) << "ae: error (read): " << ex.code() << ", " <<  ex.what ();
-      throw;
-    }
+    buffer.clear ();
+    if (msg_sz > 0) {
+      buffer.resize (msg_sz);
+      try {
+        s = istream->read_all (buffer.data(), msg_sz, read, reader_cancel);
+      } catch (Gio::Error &ex) {
+        LOG (error) << "ae: error (read): " << ex.code() << ", " <<  ex.what ();
+        throw;
+      }
 
-    if (!s || read != msg_sz) {
-      LOG (error) << "reader: error while reading message (size: " << msg_sz << ")";
-      throw ipc_error ("could not read message");
+      if (!s || read != msg_sz) {
+        LOG (error) << "reader: error while reading message (size: " << msg_sz << ")";
+        throw ipc_error ("could not read message");
+      }
+    } else {
+      s = true;
+      read = 0;
     }
     return mt;
   }
