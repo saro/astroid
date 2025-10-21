@@ -301,7 +301,15 @@ namespace Astroid {
         notmuch_database_get_default_indexopts (nm_db),
         &msg);
 
-    if ((s != NOTMUCH_STATUS_SUCCESS) && (s != NOTMUCH_STATUS_DUPLICATE_MESSAGE_ID)) {
+    if (s == NOTMUCH_STATUS_DUPLICATE_MESSAGE_ID) {
+      LOG (warn) << "db: message with duplicate Message-ID already exists in database, skipping: " << fname;
+      if (msg != NULL) {
+        notmuch_message_destroy (msg);
+      }
+      return "";
+    }
+
+    if (s != NOTMUCH_STATUS_SUCCESS) {
       LOG (error) << "db: error adding message: " << s;
 
       if (s == NOTMUCH_STATUS_FILE_ERROR) {
