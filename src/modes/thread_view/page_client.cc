@@ -476,9 +476,11 @@ namespace Astroid {
 
     if (astroid->config().get<std::string> ("thread_view.preferred_type") == "plain" &&
         astroid->config().get<bool> ("thread_view.preferred_html_only")) {
-      /* check if we have a preferred part - and open first viewable if not */
+      /* check if we have a preferred part - and open first viewable if not
+       * Performance: Cache all_parts() to avoid redundant MIME tree traversal */
+      auto cached_parts = m->all_parts();
       bool found_preferred = false;
-      for (auto &c : m->all_parts ()) {
+      for (auto &c : cached_parts) {
         if (c->preferred) {
           found_preferred = true;
           break;
@@ -487,7 +489,7 @@ namespace Astroid {
 
       /* take first viewable */
       if (!found_preferred) {
-        for (auto &c : m->all_parts ()) {
+        for (auto &c : cached_parts) {
           if (c->viewable) {
             c->preferred = true;
             break;
@@ -512,6 +514,7 @@ namespace Astroid {
         // add MIME message to message state
         MessageState::Element e (MessageState::ElementType::MimeMessage, c->id);
         thread_view->state[m].elements.push_back (e);
+        thread_view->state[m].element_id_to_index[c->id] = thread_view->state[m].elements.size() - 1;
       }
     }
 
@@ -535,6 +538,7 @@ namespace Astroid {
         // add attachment to message state
         MessageState::Element e (MessageState::ElementType::Attachment, c->id);
         thread_view->state[m].elements.push_back (e);
+        thread_view->state[m].element_id_to_index[c->id] = thread_view->state[m].elements.size() - 1;
       }
     }
 
@@ -584,6 +588,7 @@ namespace Astroid {
       if (!keep_state) {
         MessageState::Element e (MessageState::ElementType::Encryption, c->crypt->id);
         thread_view->state[m].elements.push_back (e);
+        thread_view->state[m].element_id_to_index[c->crypt->id] = thread_view->state[m].elements.size() - 1;
       }
 
       vector<ustring> all_sig_errors;
@@ -788,6 +793,7 @@ namespace Astroid {
 
           part->set_focusable (e.focusable);
           thread_view->state[m].elements.push_back (e);
+          thread_view->state[m].element_id_to_index[c->id] = thread_view->state[m].elements.size() - 1;
         } else {
           LOG (debug) << "cid: " << c->id;
           part->set_focusable ( thread_view->state[m].get_element_by_id (c->id)->focusable );
@@ -811,6 +817,7 @@ namespace Astroid {
         MessageState::Element e (MessageState::ElementType::Part, c->id);
         part->set_focusable (e.focusable);
         thread_view->state[m].elements.push_back (e);
+        thread_view->state[m].element_id_to_index[c->id] = thread_view->state[m].elements.size() - 1;
       } else {
         part->set_focusable ( thread_view->state[m].get_element_by_id (c->id)->focusable );
       }

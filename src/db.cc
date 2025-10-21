@@ -2,6 +2,7 @@
 # include <vector>
 # include <algorithm>
 # include <exception>
+# include <unordered_set>
 # include <boost/filesystem.hpp>
 
 # include <thread>
@@ -926,32 +927,31 @@ namespace Astroid {
          * removed for those versions of notmuch */
         if (msgs.size() != (unsigned int) notmuch_thread_get_total_messages (nm_thread))
         {
-          ustring mid;
-          LOG (error) << "db: thread count not met! Brute force!";
+          LOG (error) << "db: thread count not met! Using optimized deduplication.";
+
+          /* Build hash set of existing message IDs for O(1) lookup instead of O(n)
+           * Performance: O(n) instead of O(n²) for large threads */
+          std::unordered_set<std::string> existing_mids;
+          existing_mids.reserve(msgs.size());
+          for (const auto& msg_pair : msgs) {
+            existing_mids.insert(msg_pair.second->mid.c_str());
+          }
+
           for (qmessages = notmuch_thread_get_messages (nm_thread);
                notmuch_messages_valid (qmessages);
                notmuch_messages_move_to_next (qmessages)) {
-            bool found;
-            found = false;
 
             message = notmuch_messages_get (qmessages);
+            const char* mid_cstr = notmuch_message_get_message_id (message);
 
-            mid = notmuch_message_get_message_id (message);
-            LOG (error) << "mid: " << mid;
-
-            for (unsigned int i = 0; i < msgs.size(); i ++)
+            /* O(1) hash lookup instead of O(n) linear search */
+            if (existing_mids.find(mid_cstr) == existing_mids.end())
             {
-              if (msgs[i].second->mid == mid)
-              {
-                found = true;
-                break;
-              }
-            }
-            if ( ! found )
-            {
+              ustring mid(mid_cstr);
               LOG (error) << "mid: " << mid << " was missing!";
               msgs.push_back ( std::make_pair (
                     0, refptr<NotmuchMessage> (new NotmuchMessage (message))));
+              existing_mids.insert(mid_cstr);
             }
           }
         }
