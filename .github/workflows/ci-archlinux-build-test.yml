@@ -1,0 +1,60 @@
+---
+name: "CI: Arch Linux"
+on:
+  - push
+  - pull_request
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    timeout-minutes: 20
+    steps:
+      - name: Update system and install base-devel
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --needed --noconfirm base-devel git
+
+      - name: Git checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          pacman -S --needed --noconfirm \
+            boost \
+            cmake \
+            gcc \
+            git \
+            glibmm \
+            gmime3 \
+            gnupg \
+            gobject-introspection \
+            gtkmm3 \
+            libpeas \
+            libsass \
+            ninja \
+            notmuch \
+            pkgconf \
+            protobuf \
+            python-gobject \
+            scdoc \
+            vte3 \
+            w3m \
+            webkit2gtk \
+            xorg-server-xvfb \
+            xorg-xauth
+
+      - name: "CMake: Configure"
+        run: cmake -H. -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Release
+
+      - name: "CMake: Build"
+        run: cmake --build build
+
+      - name: Run Tests
+        env:
+          HOME: /tmp/home
+          LC_ALL: C.UTF-8
+        run: |
+          mkdir -p $HOME
+          cd build
+          xvfb-run ctest --output-on-failure
