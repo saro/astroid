@@ -1,16 +1,20 @@
 ---
 name: "CI: Arch Linux"
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
 jobs:
   build-test:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
-      - name: Initialize Arch Linux keyring and update system
+      - name: Setup Arch Linux environment
         run: |
           # Initialize pacman keyring
           pacman-key --init
@@ -19,14 +23,14 @@ jobs:
           # Update system
           pacman -Syu --noconfirm --needed
 
-          # Install git and base-devel for checkout
+          # Install git and base-devel
           pacman -S --needed --noconfirm base-devel git
 
-      - name: Git checkout
-        uses: actions/checkout@v4
+          # Configure git for containers
+          git config --global --add safe.directory '*'
 
-      - name: Fix git safe directory
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Install build dependencies
         run: |
@@ -42,7 +46,6 @@ jobs:
             gtkmm3 \
             libpeas \
             libsass \
-            make \
             ninja \
             notmuch \
             pkgconf \
@@ -56,17 +59,21 @@ jobs:
             xorg-server-xvfb \
             xorg-xauth
 
-      - name: "CMake: Configure"
-        run: cmake -S. -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Release
+      - name: Configure build
+        run: |
+          cmake -S. -Bbuild -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBoost_NO_BOOST_CMAKE=ON \
+            -DCMAKE_POLICY_DEFAULT_CMP0167=OLD
 
-      - name: "CMake: Build"
-        run: cmake --build build --verbose
+      - name: Build project
+        run: cmake --build build
 
-      - name: Run Tests
+      - name: Run tests
         env:
           HOME: /tmp/home
           LC_ALL: C.UTF-8
         run: |
-          mkdir -p $HOME
+          mkdir -p "$HOME"
           cd build
-          xvfb-run ctest --output-on-failure --verbose
+          xvfb-run ctest --output-on-failure
