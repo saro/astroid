@@ -8,7 +8,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
-      options: --privileged
     timeout-minutes: 25
     steps:
       - name: Initialize Arch Linux keyring and update system
@@ -26,10 +25,14 @@ jobs:
       - name: Git checkout
         uses: actions/checkout@v4
 
+      - name: Fix git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Install build dependencies
         run: |
           pacman -S --needed --noconfirm \
             boost \
+            boost-libs \
             cmake \
             gcc \
             glibmm \
@@ -39,15 +42,17 @@ jobs:
             gtkmm3 \
             libpeas \
             libsass \
+            make \
             ninja \
             notmuch \
             pkgconf \
             protobuf \
+            python \
             python-gobject \
             scdoc \
             vte3 \
             w3m \
-            webkit2gtk-4.1 \
+            webkit2gtk \
             xorg-server-xvfb \
             xorg-xauth
 
