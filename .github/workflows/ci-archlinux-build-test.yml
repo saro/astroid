@@ -8,11 +8,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
-    timeout-minutes: 20
+      options: --privileged
+    timeout-minutes: 25
     steps:
-      - name: Update system and install base-devel
+      - name: Initialize Arch Linux keyring and update system
         run: |
-          pacman -Syu --noconfirm
+          # Initialize pacman keyring
+          pacman-key --init
+          pacman-key --populate archlinux
+
+          # Update system
+          pacman -Syu --noconfirm --needed
+
+          # Install git and base-devel for checkout
           pacman -S --needed --noconfirm base-devel git
 
       - name: Git checkout
@@ -24,7 +32,6 @@ jobs:
             boost \
             cmake \
             gcc \
-            git \
             glibmm \
             gmime3 \
             gnupg \
@@ -40,15 +47,15 @@ jobs:
             scdoc \
             vte3 \
             w3m \
-            webkit2gtk \
+            webkit2gtk-4.1 \
             xorg-server-xvfb \
             xorg-xauth
 
       - name: "CMake: Configure"
-        run: cmake -H. -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S. -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Release
 
       - name: "CMake: Build"
-        run: cmake --build build
+        run: cmake --build build --verbose
 
       - name: Run Tests
         env:
@@ -57,4 +64,4 @@ jobs:
         run: |
           mkdir -p $HOME
           cd build
-          xvfb-run ctest --output-on-failure
+          xvfb-run ctest --output-on-failure --verbose
