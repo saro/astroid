@@ -67,6 +67,7 @@ option (DISABLE_DOCS             "Disable generating docs (manpage) (default = e
 option (ENABLE_PROFILING         "Enable profiling (default = disabled)"                          OFF)
 option (DISABLE_LIBSASS          "Disable libsass, requires a sassc compiler (default = enabled)" OFF)
 option (DEBUG_WEBKIT             "Turn on extra debug options for WebKit (default = disabled)"    OFF)
+option (DISABLE_TESTS            "Disable building tests (default = enabled)"                     OFF)
 
 set (SCSS_COMPILER "sassc" CACHE STRING "SCSS compiler to use when libsass is disabled (default = sassc)")
 
@@ -579,6 +580,10 @@ endif()
 ##
 # Tests
 #
-enable_testing()
-add_subdirectory (tests)
+if(NOT DISABLE_TESTS)
+  enable_testing()
+  add_subdirectory (tests)
+else()
+  message (STATUS "Building tests disabled.")
+endif()
 
