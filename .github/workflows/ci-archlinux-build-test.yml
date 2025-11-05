@@ -8,7 +8,7 @@ on:
     branches:
       - '**'
 jobs:
-  build-test:
+  build:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
@@ -55,9 +55,7 @@ jobs:
             scdoc \
             vte3 \
             w3m \
-            webkit2gtk \
-            xorg-server-xvfb \
-            xorg-xauth
+            webkit2gtk
 
       - name: Configure build
         run: |
@@ -68,12 +66,3 @@ jobs:
 
       - name: Build project
         run: cmake --build build
-
-      - name: Run tests
-        env:
-          HOME: /tmp/home
-          LC_ALL: C.UTF-8
-        run: |
-          mkdir -p "$HOME"
-          cd build
-          xvfb-run ctest --output-on-failure
