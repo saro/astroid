@@ -115,6 +115,7 @@ set(Boost_NO_BOOST_CMAKE ON)
 # Use Boost_USE_STATIC_LIBS=OFF to avoid version-specific library names
 set(Boost_USE_STATIC_LIBS OFF)
 
+# Note: Boost.System became header-only in Boost 1.69+, so it's not in COMPONENTS
 find_package ( Boost REQUIRED
   COMPONENTS
   filesystem
@@ -123,7 +124,6 @@ find_package ( Boost REQUIRED
   log
   thread
   date_time
-  system
   )
 
 find_package (Protobuf CONFIG)
