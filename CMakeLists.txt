@@ -112,6 +112,8 @@ find_package ( Threads )
 # Force use of FindBoost.cmake module for compatibility with Arch Linux Boost 1.89+
 # The new BoostConfig.cmake in Boost 1.89+ doesn't provide component config files
 set(Boost_NO_BOOST_CMAKE ON)
+# Use Boost_USE_STATIC_LIBS=OFF to avoid version-specific library names
+set(Boost_USE_STATIC_LIBS OFF)
 
 find_package ( Boost REQUIRED
   COMPONENTS
