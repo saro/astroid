@@ -471,6 +471,7 @@ if(DISABLE_PLUGINS)
 else()
   include (FindGObjectIntrospection)   # this performs a pkg_check_modules()
   pkg_check_modules (PEAS libpeas-1.0>=1.0.0)
+  pkg_check_modules (GIREPOSITORY gobject-introspection-1.0)
   if(INTROSPECTION_FOUND AND PEAS_FOUND)
     #
     # GObject introspection
@@ -519,11 +520,16 @@ else()
       gir_main
       ${${GIR_NAME}_FILES}
       )
+    target_include_directories (
+      gir_main PRIVATE
+      ${GIREPOSITORY_INCLUDE_DIRS}
+      )
     target_link_libraries (
       gir_main
       ${WEBKIT2GTK_LDFLAGS}
       ${GTKMM3_LDFLAGS}
       ${PEAS_LDFLAGS}
+      ${GIREPOSITORY_LDFLAGS}
       ${INTROSPECTION_LIBS}
       ${Gettext_LDFAGS}
       )
