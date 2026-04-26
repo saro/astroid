@@ -129,18 +129,39 @@ AstroidExtension::AstroidExtension (
   Gio::init ();
   logging::add_common_attributes ();
 
-  /* load attachment icon */
+  /* load attachment icon
+   *
+   * Modern WebKit sandboxes the web process so it has no display
+   * connection, which makes Gtk::IconTheme::get_default() emit
+   *   Gtk-CRITICAL: gtk_icon_theme_get_for_screen: assertion
+   *     'GDK_IS_SCREEN (screen)' failed
+   * and return a RefPtr wrapping NULL. Dereferencing it (or calling
+   * load_icon on a theme without a screen) crashes the web extension,
+   * which leaves the main process waiting forever for the extension
+   * socket and the user sees an empty thread view. Be defensive. */
   Glib::RefPtr<Gtk::IconTheme> theme = Gtk::IconTheme::get_default();
-  attachment_icon = theme->load_icon (
-      "mail-attachment-symbolic",
-      ATTACHMENT_ICON_WIDTH,
-      Gtk::ICON_LOOKUP_USE_BUILTIN );
+  if (theme) {
+    try {
+      attachment_icon = theme->load_icon (
+          "mail-attachment-symbolic",
+          ATTACHMENT_ICON_WIDTH,
+          Gtk::ICON_LOOKUP_USE_BUILTIN );
+    } catch (const Glib::Error &e) {
+      LOG (warn) << "ext: could not load attachment icon: " << e.what ();
+    }
 
-  /* load marked icon */
-  marked_icon = theme->load_icon (
-      "object-select-symbolic",
-      ATTACHMENT_ICON_WIDTH,
-      Gtk::ICON_LOOKUP_USE_BUILTIN );
+    /* load marked icon */
+    try {
+      marked_icon = theme->load_icon (
+          "object-select-symbolic",
+          ATTACHMENT_ICON_WIDTH,
+          Gtk::ICON_LOOKUP_USE_BUILTIN );
+    } catch (const Glib::Error &e) {
+      LOG (warn) << "ext: could not load marked icon: " << e.what ();
+    }
+  } else {
+    LOG (warn) << "ext: no default icon theme available (sandboxed web process); skipping icon load";
+  }
 
   /* retrieve socket address */
   gsize sz;
@@ -1419,6 +1440,11 @@ void AstroidExtension::set_attachment_icon (
 {
   GError *err;
 
+  if (!attachment_icon) {
+    /* icon theme was not available at extension startup */
+    return;
+  }
+
   WebKitDOMHTMLElement * attachment_icon_img = DomUtils::select (
       WEBKIT_DOM_NODE (div_message),
       ".attachment.icon.first");
@@ -1455,6 +1481,11 @@ void AstroidExtension::set_attachment_icon (
 }
 
 void AstroidExtension::load_marked_icon (WebKitDOMHTMLElement * div_message) {
+
+  if (!marked_icon) {
+    /* icon theme was not available at extension startup */
+    return;
+  }
 
   WebKitDOMHTMLElement * marked_icon_img = DomUtils::select (
       WEBKIT_DOM_NODE (div_message),
