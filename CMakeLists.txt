@@ -95,7 +95,7 @@ endif()
 
 pkg_check_modules (GTKMM3     REQUIRED  gtkmm-3.0>=3.10)
 pkg_check_modules (GLIBMM2    REQUIRED  glibmm-2.4)
-pkg_check_modules (WEBKIT2GTK webkit2gtk-4.1)
+pkg_check_modules (WEBKIT2GTK webkit2gtk-4.1>=2.40)
 if (NOT WEBKIT2GTK_FOUND)
   pkg_check_modules (WEBKIT2GTK REQUIRED webkit2gtk-4.0>=2.22)
 endif ()

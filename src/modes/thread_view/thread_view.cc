@@ -81,8 +81,14 @@ namespace Astroid {
 
     /* one process for each webview so that a new and unique
      * instance of the webextension is created for each webview
-     * and page */
+     * and page.
+     *
+     * The multiple-secondary-processes model has been the default since
+     * WebKit 2.26 and webkit_web_context_set_process_model() is a
+     * deprecated no-op since 2.40, so only call it on older versions. */
+#if !WEBKIT_CHECK_VERSION(2, 40, 0)
     webkit_web_context_set_process_model (context, WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES);
+#endif
 
     websettings = WEBKIT_SETTINGS (webkit_settings_new_with_settings (
         "enable-javascript", TRUE,
