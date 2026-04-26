@@ -67,6 +67,7 @@ option (DISABLE_DOCS             "Disable generating docs (manpage) (default = e
 option (ENABLE_PROFILING         "Enable profiling (default = disabled)"                          OFF)
 option (DISABLE_LIBSASS          "Disable libsass, requires a sassc compiler (default = enabled)" OFF)
 option (DEBUG_WEBKIT             "Turn on extra debug options for WebKit (default = disabled)"    OFF)
+option (DISABLE_TESTS            "Disable building tests (default = enabled)"                     OFF)
 
 set (SCSS_COMPILER "sassc" CACHE STRING "SCSS compiler to use when libsass is disabled (default = sassc)")
 
@@ -108,6 +109,13 @@ pkg_check_modules (GMIME      REQUIRED  gmime-${GMIME_MAJOR_MINOR}>=${Notmuch_GM
 
 find_package ( Threads )
 
+# Force use of FindBoost.cmake module for compatibility with Arch Linux Boost 1.89+
+# The new BoostConfig.cmake in Boost 1.89+ doesn't provide component config files
+set(Boost_NO_BOOST_CMAKE ON)
+# Use Boost_USE_STATIC_LIBS=OFF to avoid version-specific library names
+set(Boost_USE_STATIC_LIBS OFF)
+
+# Note: Boost.System became header-only in Boost 1.69+, so it's not in COMPONENTS
 find_package ( Boost REQUIRED
   COMPONENTS
   filesystem
@@ -116,7 +124,6 @@ find_package ( Boost REQUIRED
   log
   thread
   date_time
-  system
   )
 
 find_package (Protobuf CONFIG)
@@ -579,6 +586,10 @@ endif()
 ##
 # Tests
 #
-enable_testing()
-add_subdirectory (tests)
+if(NOT DISABLE_TESTS)
+  enable_testing()
+  add_subdirectory (tests)
+else()
+  message (STATUS "Building tests disabled.")
+endif()
 

@@ -1,0 +1,75 @@
+---
+name: "CI: Arch Linux"
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    timeout-minutes: 30
+    steps:
+      - name: Setup Arch Linux environment
+        run: |
+          # Initialize pacman keyring
+          pacman-key --init
+          pacman-key --populate archlinux
+
+          # Update system
+          pacman -Syu --noconfirm --needed
+
+          # Install git and base-devel
+          pacman -S --needed --noconfirm base-devel git
+
+          # Configure git for containers
+          git config --global --add safe.directory '*'
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          pacman -S --needed --noconfirm \
+            boost \
+            boost-libs \
+            cmake \
+            gcc \
+            glibmm \
+            gmime3 \
+            gnupg \
+            gobject-introspection \
+            gtkmm3 \
+            libpeas \
+            libsass \
+            ninja \
+            notmuch \
+            pkgconf \
+            protobuf \
+            python \
+            python-gobject \
+            scdoc \
+            vte3 \
+            w3m \
+            webkit2gtk
+
+      - name: Verify Boost installation
+        run: |
+          echo "Boost libraries installed:"
+          ls -la /usr/lib/libboost_*.so* | head -10
+          echo "Boost version:"
+          pacman -Q boost
+
+      - name: Configure build
+        run: |
+          cmake -S. -Bbuild -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DDISABLE_TESTS=ON \
+            -DBoost_DEBUG=ON
+
+      - name: Build project
+        run: cmake --build build

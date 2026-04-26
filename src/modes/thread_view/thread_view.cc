@@ -2102,6 +2102,7 @@ namespace Astroid {
   /* MessageState   */
   ThreadView::MessageState::MessageState () {
     elements.push_back (Element (Empty, -1));
+    element_id_to_index[-1] = 0;  /* update hash map for first element */
     current_element = 0;
   }
 
@@ -2128,20 +2129,18 @@ namespace Astroid {
   }
 
   ThreadView::MessageState::Element * ThreadView::MessageState::get_element_by_id (int id) {
-    for (auto e : elements) {
-      LOG (debug) << "e: " << e.id;
+    /* O(1) hash map lookup instead of O(n) linear search */
+    auto it = element_id_to_index.find(id);
+
+    if (it != element_id_to_index.end()) {
+      size_t index = it->second;
+      if (index < elements.size()) {
+        return &elements[index];
+      }
     }
 
-    auto e = std::find_if (
-        elements.begin (), elements
-        .end (),
-        [&] (auto e) { return e.id == id; } );
-
-    if (e == elements.end ()) {
-      LOG (error) << "tv: e == NULL";
-    }
-
-    return (e != elements.end() ? &(*e) : NULL);
+    LOG (error) << "tv: element with id " << id << " not found";
+    return NULL;
   }
 
   /* end MessageState  */

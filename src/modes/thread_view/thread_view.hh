@@ -2,6 +2,7 @@
 
 # include <atomic>
 # include <map>
+# include <unordered_map>
 # include <vector>
 # include <string>
 # include <chrono>
@@ -135,6 +136,10 @@ namespace Astroid {
            * itself.
            */
           std::vector<Element> elements;
+
+          /* hash map for O(1) element lookup by ID instead of O(n) linear search */
+          std::unordered_map<int, size_t> element_id_to_index;
+
           unsigned int    current_element;
           Element * get_current_element ();
           Element * get_element_by_id (int id);
