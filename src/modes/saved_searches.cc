@@ -533,7 +533,14 @@ namespace Astroid {
 
     needs_refresh = false;
 
-    for (auto row : store->children ()) {
+    bool hide_empty = astroid->config ("saved_searches").get<bool> ("hide_empty");
+
+    /* Collect iters of empty queries to remove after the loop, since
+     * mutating store->children() while iterating is unsafe. */
+    std::vector<Gtk::TreeIter> to_remove;
+
+    for (auto it = store->children ().begin (); it != store->children ().end (); ++it) {
+      auto row = *it;
       if (row[m_columns.m_col_description]) continue;
 
       ustring query = row[m_columns.m_col_query];
@@ -551,6 +558,11 @@ namespace Astroid {
       if (st != NOTMUCH_STATUS_SUCCESS) total_messages = 0;
       notmuch_query_destroy (query_t);
 
+      if (hide_empty && total_messages == 0) {
+        to_remove.push_back (it);
+        continue;
+      }
+
       ustring unread_q_s = "(" + query + ") AND tag:unread";
       notmuch_query_t * unread_q = notmuch_query_create (db->nm_db, unread_q_s.c_str());
       for (ustring & t : db->excluded_tags) {
@@ -564,6 +576,38 @@ namespace Astroid {
       row[m_columns.m_col_unread_messages] = unread_messages;
       row[m_columns.m_col_unread_messages_s] = ustring::compose ("(unread: %1)", unread_messages);
       row[m_columns.m_col_total_messages] = ustring::compose ("(total: %1)", total_messages);
+    }
+
+    for (auto &it : to_remove) {
+      store->erase (it);
+    }
+
+    if (hide_empty) {
+      /* Drop section headers (Startup queries / Saved searches / Search
+       * history) that no longer have any queries under them. */
+      std::vector<Gtk::TreeIter> empty_headers;
+      Gtk::TreeIter pending_header;
+      bool header_has_children = false;
+
+      for (auto it = store->children ().begin (); it != store->children ().end (); ++it) {
+        auto row = *it;
+        if (row[m_columns.m_col_description]) {
+          if (pending_header && !header_has_children) {
+            empty_headers.push_back (pending_header);
+          }
+          pending_header = it;
+          header_has_children = false;
+        } else {
+          header_has_children = true;
+        }
+      }
+      if (pending_header && !header_has_children) {
+        empty_headers.push_back (pending_header);
+      }
+
+      for (auto &it : empty_headers) {
+        store->erase (it);
+      }
     }
   }
 

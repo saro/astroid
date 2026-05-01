@@ -302,6 +302,7 @@ namespace Astroid {
     default_config.put ("saved_searches.save_history", true);
     default_config.put ("saved_searches.history_lines_to_show", 15); /* -1 is all */
     default_config.put ("saved_searches.history_lines", 1000); /* number of history lines to store */
+    default_config.put ("saved_searches.hide_empty", true); /* hide queries with no matching messages */
 
     return default_config;
   }
