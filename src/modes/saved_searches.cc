@@ -468,6 +468,12 @@ namespace Astroid {
         sigc::mem_fun (this, &SavedSearches::reload));
   }
 
+  SavedSearches::~SavedSearches () {
+    if (refresh_timeout_conn.connected ()) {
+      refresh_timeout_conn.disconnect ();
+    }
+  }
+
   void SavedSearches::on_my_row_activated (
       const Gtk::TreeModel::Path &,
       Gtk::TreeViewColumn *) {
@@ -513,8 +519,30 @@ namespace Astroid {
     row[m_columns.m_col_history] = history;
   }
 
-  void SavedSearches::on_thread_changed (Db * db, ustring) {
-    refresh_stats_db (db);
+  void SavedSearches::on_thread_changed (Db *, ustring) {
+    /* During polling many thread-changed signals arrive in quick succession
+     * (one per updated thread). Running refresh_stats_db for each would
+     * issue 2*N notmuch_query_count_messages calls per saved search and
+     * blocks the GUI thread - especially noticeable for tag:unread queries
+     * after a poll brings in lots of new mail. Debounce: schedule a single
+     * refresh and reset the timer on each new event so we only do the work
+     * once after the storm settles. */
+    schedule_refresh ();
+  }
+
+  void SavedSearches::schedule_refresh () {
+    if (refresh_timeout_conn.connected ()) {
+      refresh_timeout_conn.disconnect ();
+    }
+
+    refresh_timeout_conn = Glib::signal_timeout ().connect (
+        sigc::mem_fun (this, &SavedSearches::refresh_stats_timeout),
+        refresh_debounce_ms);
+  }
+
+  bool SavedSearches::refresh_stats_timeout () {
+    refresh_stats ();
+    return false; /* one-shot */
   }
 
   void SavedSearches::refresh_stats () {

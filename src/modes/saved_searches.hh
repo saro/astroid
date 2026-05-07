@@ -9,6 +9,7 @@ namespace Astroid {
   class SavedSearches : public Mode {
     public:
       SavedSearches (MainWindow *);
+      ~SavedSearches ();
 
       void grab_modal () override;
       void release_modal () override;
@@ -37,9 +38,13 @@ namespace Astroid {
 
       void reload ();
       void refresh_stats ();
+      bool refresh_stats_timeout ();
+      void schedule_refresh ();
     private:
       void refresh_stats_db (Db *);
       bool needs_refresh = false;
+      sigc::connection refresh_timeout_conn;
+      static const int refresh_debounce_ms = 500;
     public:
       bool show_all_history = false;
 
