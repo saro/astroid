@@ -158,6 +158,23 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
+##
+# Cap the build to 2 parallel jobs.
+#
+# Applies to Ninja via job pools (so `ninja`, `cmake --build` and
+# IDE-driven builds all honour the limit). Override locally with
+# `cmake -DASTROID_MAX_BUILD_JOBS=N ..` or by passing
+# `--parallel N` / `-jN` to the build / test command.
+#
+set (ASTROID_MAX_BUILD_JOBS "2" CACHE STRING
+  "Maximum parallel compile/link/test jobs (Ninja job pool)")
+
+set_property (GLOBAL PROPERTY JOB_POOLS
+  astroid_compile=${ASTROID_MAX_BUILD_JOBS}
+  astroid_link=${ASTROID_MAX_BUILD_JOBS})
+set (CMAKE_JOB_POOL_COMPILE astroid_compile)
+set (CMAKE_JOB_POOL_LINK    astroid_link)
+
 include_directories (
   ${GTKMM3_INCLUDE_DIRS}
   ${GLIBMM2_INCLUDE_DIRS}

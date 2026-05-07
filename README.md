@@ -35,16 +35,18 @@ $ git clone https://github.com/astroidmail/astroid.git
 ```sh
 $ cd astroid
 $ cmake -H. -Bbuild -GNinja # to use the ninja backend
-$ cmake --build build
+$ cmake --build build --parallel 2
 ```
 
 Run `cmake -DOPTION=VALUE ..` from `build/` to set any build options (list with `cmake -L`). Subsequent builds can be done by running `ninja` (or `make` if you are using that) from the build directory.
+
+The build is capped to 2 parallel compile/link jobs by default to keep memory usage modest. Override with `-DASTROID_MAX_BUILD_JOBS=N` at configure time, or by passing `--parallel N` (cmake) / `-jN` (ninja, make) to the build command.
 
 And to run the tests do:
 
 ```sh
 $ cd build
-$ ctest
+$ ctest -j2
 ```
 
 ### Installing

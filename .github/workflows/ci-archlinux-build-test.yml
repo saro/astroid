@@ -69,7 +69,8 @@ jobs:
           cmake -S. -Bbuild -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DDISABLE_TESTS=ON \
+            -DASTROID_MAX_BUILD_JOBS=2 \
             -DBoost_DEBUG=ON
 
       - name: Build project
-        run: cmake --build build
+        run: cmake --build build --parallel 2
