@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astroid-mail"
+description = "Astroid mail client (Python reimplementation, GTK4 + WebKitGTK 6.0)"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.11"
+dynamic = ["version"]
+# PyGObject and notmuch2 are deliberately not listed as PyPI dependencies:
+# both must come from the distribution so they match the system libraries
+# (notmuch2 is version-locked to libnotmuch; PyGObject needs the gi stack).
+# Arch: python-gobject python-notmuch2 gtk4 webkitgtk-6.0 gmime3
+# Debian/Ubuntu: python3-gi python3-notmuch2 gir1.2-gtk-4.0 gir1.2-webkit-6.0 gir1.2-gmime-3.0
+dependencies = []
+
+[project.optional-dependencies]
+theme = ["libsass"]
+dev = ["pytest"]
+
+[project.scripts]
+astroid-py = "astroid_mail.app:main"
+
+[tool.setuptools]
+packages = [
+    "astroid_mail",
+    "astroid_mail.actions",
+    "astroid_mail.models",
+    "astroid_mail.modes",
+    "astroid_mail.modes.thread_index",
+    "astroid_mail.modes.thread_view",
+    "astroid_mail.modes.editor",
+    "astroid_mail.utils",
+]
+
+[tool.setuptools.package-data]
+"astroid_mail.modes.thread_view" = ["data/*.js"]
+
+[tool.setuptools.dynamic]
+version = { attr = "astroid_mail.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
