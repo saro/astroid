@@ -18,7 +18,7 @@ editor (GTK4 removed XEmbed — external editor only, `editor.cmd` with `%1`).
 
 ## Status
 
-Phase 0 (scaffolding + de-risk spikes) — done:
+Phase 0 (scaffolding + spikes) and Phase 1 (read path) — done:
 
 - `astroid_mail.config` / `astroid_mail.ptree_json`: boost-ptree-compatible
   config loading, tested against the C++ defaults table.
@@ -34,8 +34,23 @@ Phase 0 (scaffolding + de-risk spikes) — done:
     script message handlers, sandboxed `srcdoc` iframes, CSP-based
     remote-image blocking. All green on WebKitGTK 6.0 (2.52.3).
 
-Next: Phase 1 — read path (app shell, keybindings engine, thread index,
-thread view, poll, tag actions with undo).
+Phase 1 additionally delivered: keybindings engine (same action names +
+user override file), db layer (notmuch2, RO/RW gate, maildir flag sync),
+action manager with undo, poll with lastmod partial refresh, message
+models (GMime), thread index (Gtk.ListView), thread view (tv.js over
+evaluate_javascript / script message handlers), main window, command
+bar, help mode and the `astroid-py` entry point.
+
+Run against your real notmuch setup:
+
+    cd python && python3 -m astroid_mail    # reads ~/.config/astroid/config
+
+GUI smoke test (builds its own temp maildir + config):
+
+    cd python && xvfb-run -a dbus-run-session -- python3 devel/smoke_gui.py
+
+Next: Phase 2 — compose path (edit/reply/forward, external editor,
+drafts, send pipeline, saved searches, raw view, log view).
 
 ## Development
 
