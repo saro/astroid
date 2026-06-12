@@ -216,6 +216,7 @@ class Config:
         d.put("saved_searches.save_history", True)
         d.put("saved_searches.history_lines_to_show", 15)
         d.put("saved_searches.history_lines", 1000)
+        d.put("saved_searches.hide_empty", True)
 
         return d
 
