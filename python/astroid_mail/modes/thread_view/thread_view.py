@@ -296,6 +296,22 @@ class ThreadView(Mode):
                           "Reload everything",
                           self._key_refresh)
 
+        keys.register_key("r", "thread_view.reply",
+                          "Reply to current message",
+                          self._key_reply)
+        keys.register_key("G", "thread_view.reply_all",
+                          "Reply all to current message",
+                          self._key_reply_all)
+        keys.register_key("R", "thread_view.reply_sender",
+                          "Reply to sender only",
+                          self._key_reply_sender)
+        keys.register_key("f", "thread_view.forward",
+                          "Forward current message",
+                          self._key_forward)
+        keys.register_key("V", "thread_view.raw_message",
+                          "View raw message",
+                          self._key_raw)
+
     def _key_toggle_expand(self, k) -> bool:
         m = self.focused_message
         if m is None or self.edit_mode:
@@ -358,6 +374,75 @@ class ThreadView(Mode):
         Theme.load(reload=True)
         self.webview.load_html(Theme.thread_view_html, self.home_uri)
         self.ready = False
+        return True
+
+    # -- reply / forward / raw -------------------------------------------------
+
+    def _reply_in_mode(self, mode_value) -> bool:
+        from ..edit_message import EditMessage
+        from ...reply import (ReplyMode, derive_recipients, references_for_reply,
+                              reply_quote_body, reply_subject)
+        m = self.focused_message
+        if m is None:
+            return True
+        cfg = self.main_window.app.config
+        accts = self.main_window.app.accounts
+        to, cc, bcc = derive_recipients(mode_value, m, accts,
+                                        cfg.config.get_bool(
+                                            "mail.reply.mailinglist_reply_to_sender"))
+        refs, irt = references_for_reply(m)
+        em = EditMessage(self.main_window,
+                         to=to, cc=cc, bcc=bcc,
+                         subject=reply_subject(m.subject),
+                         body=reply_quote_body(cfg, m),
+                         references=refs, inreplyto=irt,
+                         reply_source_mid=m.mid)
+        self.main_window.add_mode(em)
+        return True
+
+    def _key_reply(self, k) -> bool:
+        from ...reply import ReplyMode
+        return self._reply_in_mode(ReplyMode.Default)
+
+    def _key_reply_all(self, k) -> bool:
+        from ...reply import ReplyMode
+        return self._reply_in_mode(ReplyMode.All)
+
+    def _key_reply_sender(self, k) -> bool:
+        from ...reply import ReplyMode
+        return self._reply_in_mode(ReplyMode.Sender)
+
+    def _key_forward(self, k) -> bool:
+        from ..edit_message import EditMessage
+        from ...forward import (FwdDisposition, forward_attachments,
+                                forward_as_attachment, forward_inline_body,
+                                forward_subject, resolve_disposition)
+        m = self.focused_message
+        if m is None:
+            return True
+        cfg = self.main_window.app.config
+        disp = resolve_disposition(cfg, FwdDisposition.Default)
+        if disp == FwdDisposition.Attach:
+            em = EditMessage(self.main_window,
+                             subject=forward_subject(m.subject),
+                             forward_source_mid=m.mid)
+            em.compose.add_attachment(forward_as_attachment(m))
+        else:
+            em = EditMessage(self.main_window,
+                             subject=forward_subject(m.subject),
+                             body=forward_inline_body(cfg, m),
+                             forward_source_mid=m.mid)
+            for a in forward_attachments(m):
+                em.compose.add_attachment(a)
+        self.main_window.add_mode(em)
+        return True
+
+    def _key_raw(self, k) -> bool:
+        from ..raw_message import RawMessage
+        m = self.focused_message
+        if m is None:
+            return True
+        self.main_window.add_mode(RawMessage.from_message(self.main_window, m))
         return True
 
     # -- focus -----------------------------------------------------------------

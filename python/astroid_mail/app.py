@@ -142,7 +142,21 @@ class Astroid(Gtk.Application):
         w.present()
 
     def open_mailto(self, uri: str) -> None:
-        log.info("astroid: mailto: %s (compose comes in Phase 2)", uri)
+        from .modes.edit_message import EditMessage, parse_mailto
+        log.info("astroid: mailto: %s", uri)
+        win = self.get_active_window()
+        if win is None:
+            self.open_new_window()
+            win = self.get_active_window()
+        if win is None:
+            log.error("astroid: no window for mailto")
+            return
+        try:
+            fields = parse_mailto(uri)
+            em = EditMessage(win, **fields)
+            win.add_mode(em)
+        except Exception as e:
+            log.error("astroid: mailto open failed: %s", e)
 
     def do_shutdown(self) -> None:
         if self.actions is not None:

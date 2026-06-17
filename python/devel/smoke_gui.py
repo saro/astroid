@@ -38,21 +38,37 @@ def setup_env(tmp: Path) -> Path:
 
     config_dir = tmp / "astroid"
     config_dir.mkdir()
+    sent_dir = tmp / "sent_cur"
+    drafts_dir = tmp / "drafts_cur"
+    sent_dir.mkdir()
+    drafts_dir.mkdir()
+    captured = tmp / "sendmail_captured.eml"
+    sendmail_script = tmp / "fake_sendmail.sh"
+    import stat as _stat
+    sendmail_script.write_text(f"#!/bin/sh\ncat > '{captured}'\n")
+    sendmail_script.chmod(sendmail_script.stat().st_mode |
+                         _stat.S_IEXEC | _stat.S_IRUSR)
+
     (config_dir / "config").write_text(json.dumps({
         "astroid": {"config": {"version": "11"},
                     "log": {"stdout": "true", "level": "debug"}},
         "accounts": {"test": {"name": "Charlie Root",
                               "email": "root@localhost",
-                              "sendmail": "false", "default": "true"}},
+                              "sendmail": str(sendmail_script),
+                              "default": "true",
+                              "save_sent": "true",
+                              "save_drafts_to": str(drafts_dir),
+                              "save_sent_to": str(sent_dir)}},
         "startup": {"queries": {"inbox": "tag:inbox"}},
+        "mail": {"send_delay": "0"},
         "poll": {"interval": "0"},
     }))
-    return config_dir / "config"
+    return config_dir / "config", captured
 
 
 def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="astroid-smoke-"))
-    config_file = setup_env(tmp)
+    config_file, captured = setup_env(tmp)
 
     from gi.repository import GLib, Gdk
     from astroid_mail.app import Astroid
@@ -108,7 +124,39 @@ def main() -> int:
         tv.page_client.navigate("down", "message")
         tv.page_client.navigate("up", "extreme")
 
-        GLib.timeout_add(1500, finish)
+        GLib.timeout_add(2000, stage_open_reply)
+        return False
+
+    def stage_open_reply():
+        win = app.get_active_window()
+        tv = win.current_mode()
+        # there's no focused message in the test corpus reliably; pick one
+        if tv.mthread and tv.mthread.messages:
+            tv.focused_message = tv.mthread.messages[-1]
+        ok = tv._key_reply(None)
+        results["reply_invoked"] = bool(ok)
+        from astroid_mail.modes.edit_message import EditMessage
+        em = win.current_mode()
+        results["edit_message_opened"] = isinstance(em, EditMessage)
+        if isinstance(em, EditMessage):
+            # save draft
+            saved = em._save_draft()
+            results["draft_saved"] = bool(saved)
+            # ensure To: is set so send doesn't ask yes/no
+            em._to_entry.set_text("smoke@example.org")
+            em._send_now()
+            GLib.timeout_add(2000, stage_check_sent, em)
+        else:
+            GLib.timeout_add(1500, finish)
+        return False
+
+    def stage_check_sent(em):
+        results["captured_exists"] = captured.is_file()
+        if captured.is_file():
+            body = captured.read_text(errors="replace")
+            results["captured_has_to"] = "smoke@example.org" in body
+            results["captured_has_msgid"] = "Message-Id:" in body
+        GLib.timeout_add(500, finish)
         return False
 
     def finish():
@@ -129,10 +177,21 @@ def main() -> int:
     rc = app.run(["astroid", "--config", str(config_file), "--no-auto-poll"])
 
     ok = (results["threads"] > 0 and results["tv_ready"]
+          and results.get("edit_message_opened")
+          and results.get("draft_saved")
+          and results.get("captured_exists")
+          and results.get("captured_has_to")
+          and results.get("captured_has_msgid")
           and not results["errors"])
     print()
     print(f"  threads loaded     {results['threads']}")
     print(f"  thread view ready  {results['tv_ready']}")
+    print(f"  reply invoked      {results.get('reply_invoked', False)}")
+    print(f"  edit message open  {results.get('edit_message_opened', False)}")
+    print(f"  draft saved        {results.get('draft_saved', False)}")
+    print(f"  sendmail captured  {results.get('captured_exists', False)}")
+    print(f"  capture has To     {results.get('captured_has_to', False)}")
+    print(f"  capture has MsgId  {results.get('captured_has_msgid', False)}")
     print(f"  errors             {results['errors'] or 'none'}")
     print()
     print("SMOKE PASSED" if ok else "SMOKE FAILED")

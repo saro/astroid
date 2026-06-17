@@ -194,6 +194,11 @@ class MainWindow(Gtk.ApplicationWindow):
                        lambda _k: (self.enable_search(), True)[1],
                        aliases=["o"])
 
+        k.register_key("c", "main_window.compose", "Compose new message",
+                       self._key_compose)
+        k.register_key("L", "main_window.show_log", "Show log view",
+                       self._key_show_log)
+
         k.register_key("P", "main_window.poll", "Poll for new mail",
                        lambda _k: (self.app.poll.poll(), True)[1])
 
@@ -218,6 +223,16 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _key_quit(self, _k) -> bool:
         self.app.quit()
+        return True
+
+    def _key_compose(self, _k) -> bool:
+        from .modes.edit_message import EditMessage
+        self.add_mode(EditMessage(self))
+        return True
+
+    def _key_show_log(self, _k) -> bool:
+        from .modes.log_view import LogView
+        self.add_mode(LogView(self))
         return True
 
     def _key_help(self, _k) -> bool:

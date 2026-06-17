@@ -49,8 +49,22 @@ GUI smoke test (builds its own temp maildir + config):
 
     cd python && xvfb-run -a dbus-run-session -- python3 devel/smoke_gui.py
 
-Next: Phase 2 — compose path (edit/reply/forward, external editor,
-drafts, send pipeline, saved searches, raw view, log view).
+Phase 2 — compose path — done: ComposeMessage (build/finalize/send
+with cancellable send_delay, dryrun, save_sent_to with maildir layout),
+Message-Id generator with all C++ fallback branches, reply/forward
+helpers (recipient derivation for every ReplyMode, format=flowed,
+inline/attachment forward), saved searches model with C++-compatible
+duplicate-key JSON, AddSentMessage / AddDraftMessage / RemoveMessage
+actions, external editor (Gio.FileMonitor live preview), EditMessage
+mode (header grid + switches + embedded ThreadView preview + every
+edit_message.* keybinding), RawMessage, LogView, mailto: parser, and
+`c` (compose) / `L` (log) main-window keys, plus `r` / `G` / `R` / `f`
+/ `V` in the thread view. End-to-end verified by `devel/smoke_gui.py`:
+opens a thread, replies, saves draft, sends through a fake sendmail
+that captures the RFC5322 bytes.
+
+Next: Phase 3 — fidelity (GPG crypto, markdown compose, gravatar,
+theme overrides, remote-image flow, print, format=flowed, hints).
 
 ## Development
 
