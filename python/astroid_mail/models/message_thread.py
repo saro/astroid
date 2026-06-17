@@ -160,6 +160,60 @@ class Message:
             log.error("message: could not read raw: %s", e)
             return b""
 
+    # -- reply / forward helpers ---------------------------------------------
+
+    def list_post(self) -> str:
+        """Value of List-Post header (often '<mailto:list@...>')."""
+        if not hasattr(self, "_gm") or self._gm is None:
+            return ""
+        return self._gm.get_header("List-Post") or ""
+
+    def is_list_post(self) -> bool:
+        return bool(self.list_post())
+
+    def quote(self, quote_processor: str = "w3m -dump -T text/html") -> str:
+        """Plain-text quotable body (port of Message::quote()).
+
+        For HTML-only parts the configured quote_processor (default w3m)
+        converts to text; siblings of HTML/plain are skipped unless
+        they're the chosen text/plain or there is no other choice.
+        """
+        from ..utils.cmd import Cmd
+
+        out: list[str] = []
+        chunks = self.all_parts()
+
+        def is_text(c, sub):
+            return c.viewable and c.mime_type == f"text/{sub}"
+
+        def app(c):
+            use = False
+            if c.siblings:
+                if is_text(c, "plain"):
+                    use = True
+                elif all(s.mime_type not in ("text/plain", "text/html")
+                         for s in c.siblings):
+                    use = True
+            else:
+                use = True
+
+            if use:
+                if is_text(c, "html"):
+                    if quote_processor:
+                        ok, html_to_text, _ = Cmd.pipe(
+                            quote_processor, c.viewable_text(html=False))
+                        if ok:
+                            out.append(html_to_text)
+                elif is_text(c, "plain"):
+                    out.append(c.viewable_text(html=False))
+
+            for k in c.kids:
+                app(k)
+
+        if self.root is not None:
+            app(self.root)
+        return "".join(out)
+
     def refresh_tags(self, db: Db) -> None:
         def doit(m):
             if m is not None:
