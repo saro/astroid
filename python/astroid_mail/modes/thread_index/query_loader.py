@@ -10,12 +10,25 @@ from __future__ import annotations
 import queue
 import threading
 
+import notmuch2
 from gi.repository import GLib, GObject
 
 from ...db import Db, ThreadSummary
 from ...log import log
 
 CHUNK = 100
+
+_SORT_BY_NAME = {
+    "newest": notmuch2.Database.SORT.NEWEST_FIRST,
+    "oldest": notmuch2.Database.SORT.OLDEST_FIRST,
+    "message_id": notmuch2.Database.SORT.MESSAGE_ID,
+    "unsorted": notmuch2.Database.SORT.UNSORTED,
+}
+
+
+def sort_from_name(name: str) -> notmuch2.Database.SORT:
+    return _SORT_BY_NAME.get((name or "newest").strip().lower(),
+                             notmuch2.Database.SORT.NEWEST_FIRST)
 
 
 class ThreadItem(GObject.Object):
@@ -33,10 +46,13 @@ class QueryLoader(GObject.Object):
         "done": (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
 
-    def __init__(self, store, dispatch=GLib.idle_add):
+    def __init__(self, store, dispatch=GLib.idle_add,
+                 sort: notmuch2.Database.SORT
+                 = notmuch2.Database.SORT.NEWEST_FIRST):
         super().__init__()
         self.store = store          # Gio.ListStore of ThreadItem
         self._dispatch = dispatch
+        self.sort = sort
 
         self.query = ""
         self.total_messages = 0
@@ -82,7 +98,7 @@ class QueryLoader(GObject.Object):
 
                 first = True
                 batch: list[ThreadSummary] = []
-                for t in db.threads(self.query):
+                for t in db.threads(self.query, sort=self.sort):
                     if not self._run:
                         break
                     batch.append(ThreadSummary.from_notmuch(t))
@@ -178,12 +194,22 @@ class QueryLoader(GObject.Object):
                 return ThreadSummary.from_notmuch(t) if t is not None else None
             ts = db.on_thread(thread_id, grab)
             if ts is not None:
-                # insert sorted by newest_date desc (default sort)
                 pos = self.store.get_n_items()
-                for j in range(self.store.get_n_items()):
-                    if self.store.get_item(j).summary.newest_date <= ts.newest_date:
-                        pos = j
-                        break
+                if self.sort == notmuch2.Database.SORT.OLDEST_FIRST:
+                    # oldest-first: insert after every existing row whose
+                    # newest_date is older than ours
+                    for j in range(self.store.get_n_items()):
+                        if (self.store.get_item(j).summary.newest_date
+                                >= ts.newest_date):
+                            pos = j
+                            break
+                else:
+                    # newest-first (default): insert before every row older
+                    for j in range(self.store.get_n_items()):
+                        if (self.store.get_item(j).summary.newest_date
+                                <= ts.newest_date):
+                            pos = j
+                            break
                 self.store.splice(pos, 0, [ThreadItem(ts)])
 
         # update stats

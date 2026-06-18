@@ -15,7 +15,7 @@ from ...actions import DiffTagAction, TagAction, ToggleAction  # noqa: E402
 from ...db import Db, ThreadSummary  # noqa: E402
 from ...log import log  # noqa: E402
 from ..mode import Mode  # noqa: E402
-from .query_loader import QueryLoader, ThreadItem  # noqa: E402
+from .query_loader import QueryLoader, ThreadItem, sort_from_name  # noqa: E402
 from .row_widget import RowConfig, ThreadRow  # noqa: E402
 
 
@@ -50,7 +50,9 @@ class ThreadIndex(Mode):
         self.scroll.set_vexpand(True)
         self.append(self.scroll)
 
-        self.loader = QueryLoader(self.store)
+        sort = sort_from_name(app.config.config.get_str(
+            "thread_index.sort_order"))
+        self.loader = QueryLoader(self.store, sort=sort)
         self.loader.connect("stats-ready", self._on_stats)
         self.loader.connect("done", lambda *_: log.info("ti: loaded %s threads",
                                                         self.store.get_n_items()))
