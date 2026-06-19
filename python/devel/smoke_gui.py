@@ -126,6 +126,18 @@ def main() -> int:
         tv.page_client.navigate("down", "message")
         tv.page_client.navigate("up", "extreme")
 
+        # H / I handlers must run without error; I toggles the remote flag
+        if tv.mthread and tv.mthread.messages:
+            tv.focused_message = tv.mthread.messages[-1]
+        try:
+            tv._key_toggle_html(None)
+            before = tv.remote_images_allowed
+            tv._key_toggle_remote_images(None)
+            results["html_remote_ok"] = (tv.remote_images_allowed != before
+                                         or tv.remote_images_allowed)
+        except Exception as e:  # pragma: no cover
+            results["errors"].append(f"H/I handler: {e!r}")
+
         GLib.timeout_add(2000, stage_open_reply)
         return False
 
@@ -204,6 +216,7 @@ def main() -> int:
           and results.get("compose_opened")
           and results.get("focus_not_entry")
           and results.get("compose_closed")
+          and results.get("html_remote_ok")
           and not results["errors"])
     print()
     print(f"  threads loaded     {results['threads']}")
@@ -217,6 +230,7 @@ def main() -> int:
     print(f"  compose opened     {results.get('compose_opened', False)}")
     print(f"  preview focused    {results.get('focus_not_entry', False)}")
     print(f"  x closes compose   {results.get('compose_closed', False)}")
+    print(f"  H/I handlers ok    {results.get('html_remote_ok', False)}")
     print(f"  errors             {results['errors'] or 'none'}")
     print()
     print("SMOKE PASSED" if ok else "SMOKE FAILED")

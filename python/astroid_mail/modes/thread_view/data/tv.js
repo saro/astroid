@@ -150,16 +150,16 @@ window.Astroid = (function () {
 
   function walk_chunks(m, c, container) {
     if (!c) return;
-    if (c.viewable && (c.preferred || !c.sibling)) {
+    if (c.viewable && c.use) {
       create_body_part(m, c, container);
     } else if (c.viewable) {
-      // non-preferred sibling: collapsed marker
+      // non-preferred sibling: collapsed marker (press H to switch)
       const tpl = document.getElementById("sibling_template");
       const s = tpl.cloneNode(true);
       s.removeAttribute("id");
       s.id = "sibling_" + m.mid + "_" + c.id;
       s.querySelector(".message").innerText =
-        "Alternative part (" + c.mime_type + ") - press Enter to view";
+        "Alternative part (" + c.mime_type + ") - press H to switch";
       container.appendChild(s);
     }
     for (const k of (c.kids || [])) walk_chunks(m, k, container);

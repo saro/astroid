@@ -139,6 +139,30 @@ class PageClient:
     def allow_remote_resources(self) -> None:
         self.send({"type": "allow_remote_images", "allow": True})
 
+    def set_remote_images(self, allow: bool) -> None:
+        """Enable/disable remote (inline) images for the whole view, then
+        re-render every message so the iframe CSP is rebuilt."""
+        self.send({"type": "allow_remote_images", "allow": allow})
+        for m in self.thread_view.mthread.messages:
+            self.update_message(m, "visible_parts")
+
+    def toggle_html(self, m) -> bool:
+        """Switch the focused message between its text/plain and text/html
+        alternative parts. Returns False if the message has no such
+        alternative to toggle."""
+        if m is None or not self._has_html_alternative(m):
+            return False
+        st = self.thread_view.state.setdefault(m, {})
+        st["prefer_html"] = not st.get("prefer_html", False)
+        self.update_message(m, "visible_parts")
+        return True
+
+    @staticmethod
+    def _has_html_alternative(m) -> bool:
+        types = {c.mime_type for c in m.all_parts()
+                 if c.viewable and c.siblings}
+        return "text/html" in types and "text/plain" in types
+
     def set_focus(self, m, element: int) -> None:
         if m is None:
             return
@@ -166,7 +190,9 @@ class PageClient:
                                                           m.safe_mid())],
                                      "marked": False, "expanded": True,
                                      "current_element": 0,
-                                     "unread_checked": False})
+                                     "unread_checked": False,
+                                     "prefer_html": False})
+        prefer_html = st.get("prefer_html", False)
 
         def addr(a: str) -> dict:
             ad = Address(a)
@@ -211,7 +237,8 @@ class PageClient:
         }
 
         if not m.missing_content and m.root is not None:
-            msg["root"] = self._build_chunk(m, m.root, st, keep_state)
+            msg["root"] = self._build_chunk(m, m.root, st, keep_state,
+                                            prefer_html)
 
             for c in m.attachments():
                 a = self._chunk_summary(c)
@@ -252,7 +279,19 @@ class PageClient:
             "siblings": [],
         }
 
-    def _build_chunk(self, m, c, st, keep_state: bool) -> dict | None:
+    @staticmethod
+    def _chosen_sibling(c, prefer_html: bool):
+        """Which chunk of a sibling group (multipart/alternative) to show."""
+        group = [c] + list(c.siblings)
+        if prefer_html:
+            html = next((g for g in group if g.mime_type == "text/html"), None)
+            if html is not None:
+                return html
+        chosen = next((g for g in group if g.preferred), None)
+        return chosen if chosen is not None else group[0]
+
+    def _build_chunk(self, m, c, st, keep_state: bool,
+                     prefer_html: bool = False) -> dict | None:
         if c.attachment:
             return None
 
@@ -260,16 +299,19 @@ class PageClient:
 
         if c.viewable:
             part["content"] = c.viewable_text(html=True)
-            part["use"] = bool(c.preferred) or not c.siblings
+            if not c.siblings:
+                use = True
+            else:
+                use = c is self._chosen_sibling(c, prefer_html)
+            part["use"] = use
 
             if not keep_state:
-                el = Element("part", c.id, m.safe_mid(),
-                             focusable=not c.preferred)
+                el = Element("part", c.id, m.safe_mid(), focusable=not use)
                 st["elements"].append(el)
                 part["focusable"] = el.focusable
 
         for k in c.kids:
-            ck = self._build_chunk(m, k, st, keep_state)
+            ck = self._build_chunk(m, k, st, keep_state, prefer_html)
             if ck is not None:
                 part["kids"].append(ck)
 

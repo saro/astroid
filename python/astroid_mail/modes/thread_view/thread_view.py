@@ -38,6 +38,7 @@ class ThreadView(Mode):
         self.mthread: MessageThread | None = None
         self.focused_message = None
         self.state: dict = {}
+        self.remote_images_allowed = False
 
         self.config = app.config
         tvc = app.config.config
@@ -315,6 +316,39 @@ class ThreadView(Mode):
         keys.register_key("V", "thread_view.raw_message",
                           "View raw message",
                           self._key_raw)
+
+        keys.register_key("H", "thread_view.toggle_html",
+                          "Switch between the plain and HTML version",
+                          self._key_toggle_html)
+        keys.register_key("I", "thread_view.toggle_remote_images",
+                          "Toggle showing inline (remote) images",
+                          self._key_toggle_remote_images)
+
+    def _key_toggle_html(self, k) -> bool:
+        m = self.focused_message
+        if m is None:
+            return True
+        if not self.page_client.toggle_html(m):
+            log.info("tv: no HTML/plain alternative to switch for this message")
+        return True
+
+    def _key_toggle_remote_images(self, k) -> bool:
+        # gate on encryption like the C++ (allow_remote_when_encrypted)
+        if not self.remote_images_allowed:
+            allow_enc = self.config.config.get_bool(
+                "thread_view.allow_remote_when_encrypted")
+            if not allow_enc and self.mthread is not None:
+                if any(any(c.isencrypted for c in msg.all_parts())
+                       for msg in self.mthread.messages):
+                    log.warning("tv: not showing remote images: thread has "
+                                "encrypted parts (set "
+                                "thread_view.allow_remote_when_encrypted)")
+                    return True
+        self.remote_images_allowed = not self.remote_images_allowed
+        log.info("tv: remote images %s",
+                 "enabled" if self.remote_images_allowed else "disabled")
+        self.page_client.set_remote_images(self.remote_images_allowed)
+        return True
 
     def _key_toggle_expand(self, k) -> bool:
         m = self.focused_message
