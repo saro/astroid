@@ -67,6 +67,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self._register_keys()
 
         controller = Gtk.EventControllerKey()
+        # CAPTURE: the controller fires *before* child widgets, so the WebKit
+        # webview can't swallow keys like 'x'/'y' that drive our commands.
+        # We still defer to the focused widget for plain (no-modifier)
+        # printable keys when a Gtk.Editable or Gtk.TextView has focus.
+        controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         controller.connect("key-pressed", self._on_key_pressed)
         self.add_controller(controller)
 
@@ -184,12 +189,39 @@ class MainWindow(Gtk.ApplicationWindow):
         if self.command.get_search_mode():
             return False
 
+        # if a typing widget (Gtk.Entry / Gtk.Text / Gtk.TextView) is focused
+        # and the user is typing a plain printable key without modifiers,
+        # let the widget consume it. Modifier combos (C-c, M-x...) and
+        # navigation keys (Escape, Return, Tab) still flow to our commands.
+        if self._focus_is_typing_widget(keyval, state):
+            return False
+
         # active mode first
         mode = self.current_mode()
         if mode is not None and mode.get_keys().handle(keyval, state):
             return True
 
         return bool(self.keys.handle(keyval, state))
+
+    @staticmethod
+    def _is_typing_widget(w) -> bool:
+        if w is None:
+            return False
+        return (isinstance(w, (Gtk.Editable, Gtk.TextView))
+                or (Gtk.Text and isinstance(w, Gtk.Text)))
+
+    def _focus_is_typing_widget(self, keyval: int,
+                                state: Gdk.ModifierType) -> bool:
+        if state & (Gdk.ModifierType.CONTROL_MASK
+                    | Gdk.ModifierType.ALT_MASK):
+            return False  # modifier combos always reach our handlers
+        if not self._is_typing_widget(self.get_focus()):
+            return False
+        # Escape / Return / Tab / function keys are commands, not text input.
+        u = Gdk.keyval_to_unicode(keyval)
+        if u == 0:
+            return False
+        return chr(u).isprintable() or keyval == Gdk.KEY_space
 
     # -- window keys -------------------------------------------------------------------
 
