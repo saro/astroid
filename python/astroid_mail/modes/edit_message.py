@@ -436,10 +436,19 @@ class EditMessage(Mode):
         cmd = self.app.config.config.get_str("editor.cmd")
         ed = ExternalEditor(cmd, self.tmpfile_path)
         ed.connect("edited", lambda *_: self._read_edited())
-        ed.connect("stopped", lambda *_: setattr(self, "editor_active", False))
+        ed.connect("stopped", self._on_editor_stopped)
         if ed.start():
             self.editor_active = True
+        else:
+            log.error("em: could not launch editor: %s", cmd)
+            self.main_window.error_bell()
         return True
+
+    def _on_editor_stopped(self, _ed) -> None:
+        # always read once more on exit so the preview reflects the final
+        # saved content even if the file monitor coalesced the last change
+        self.editor_active = False
+        self._read_edited()
 
     # -- close handling ------------------------------------------------------
 

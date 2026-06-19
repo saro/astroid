@@ -9,7 +9,7 @@ from __future__ import annotations
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gio, GLib, Gtk  # noqa: E402
+from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
 
 from ...actions import DiffTagAction, TagAction, ToggleAction  # noqa: E402
 from ...db import Db, ThreadSummary  # noqa: E402
@@ -17,6 +17,25 @@ from ...log import log  # noqa: E402
 from ..mode import Mode  # noqa: E402
 from .query_loader import QueryLoader, ThreadItem, sort_from_name  # noqa: E402
 from .row_widget import RowConfig, ThreadRow  # noqa: E402
+
+_no_hover_installed = False
+
+
+def _install_no_hover_css() -> None:
+    """Install (once per display) a CSS provider that removes the mouse
+    hover highlight on thread-index rows."""
+    global _no_hover_installed
+    if _no_hover_installed:
+        return
+    display = Gdk.Display.get_default()
+    if display is None:
+        return
+    provider = Gtk.CssProvider()
+    provider.load_from_data(
+        b"listview.astroid-no-hover row:hover { background: none; }")
+    Gtk.StyleContext.add_provider_for_display(
+        display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    _no_hover_installed = True
 
 
 class ThreadIndex(Mode):
@@ -44,6 +63,9 @@ class ThreadIndex(Mode):
         self.list_view = Gtk.ListView(model=self.selection, factory=factory)
         self.list_view.set_vexpand(True)
         self.list_view.connect("activate", self._on_activate)
+        # drop the theme's mouse-hover highlight on rows (keyboard-driven UI)
+        self.list_view.add_css_class("astroid-no-hover")
+        _install_no_hover_css()
 
         self.scroll = Gtk.ScrolledWindow()
         self.scroll.set_child(self.list_view)

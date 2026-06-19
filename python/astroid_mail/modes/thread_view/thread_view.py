@@ -271,6 +271,10 @@ class ThreadView(Mode):
         keys.register_key("e", "thread_view.expand",
                           "Toggle expand on focused message",
                           self._key_toggle_expand)
+        keys.register_key("Return", "thread_view.activate",
+                          "Activate / expand focused message",
+                          self._key_toggle_expand,
+                          aliases=["KP_Enter"])
         keys.register_key("C-e", "thread_view.toggle_expand_all",
                           "Toggle expand on all messages",
                           self._key_toggle_expand_all)

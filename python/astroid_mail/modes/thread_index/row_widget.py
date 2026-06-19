@@ -18,6 +18,18 @@ from ...utils import tags as tagutils  # noqa: E402
 from ...utils.dates import pretty_date  # noqa: E402
 
 
+def _parse_hex8(s: str, default):
+    """Parse '#rrggbb' to an (r, g, b) byte tuple (port of the C++ which
+    truncates the parsed 16-bit Pango colour to 8 bits)."""
+    s = (s or "").strip().lstrip("#")
+    if len(s) >= 6:
+        try:
+            return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
+        except ValueError:
+            pass
+    return default
+
+
 class RowConfig:
     def __init__(self, config):
         c = config.config
@@ -33,6 +45,16 @@ class RowConfig:
         self.hidden_tags = [t.strip() for t in
                             c.get_str("thread_index.cell.hidden_tags").split(",")
                             if t.strip()]
+        # tag chip colours (port of Utils::init_tags)
+        self.tags_upper = _parse_hex8(c.get_str("thread_index.cell.tags_upper_color"),
+                                      tagutils.DEFAULT_UPPER)
+        self.tags_lower = _parse_hex8(c.get_str("thread_index.cell.tags_lower_color"),
+                                      tagutils.DEFAULT_LOWER)
+        try:
+            a = c.get_float("thread_index.cell.tags_alpha")
+        except (ValueError, KeyError):
+            a = tagutils.DEFAULT_ALPHA
+        self.tags_alpha = min(1.0, max(0.0, a))
         self.same_year = c.get_str("general.time.same_year")
         self.diff_year = c.get_str("general.time.diff_year")
         self.clock_format = c.get_str("general.time.clock_format")
@@ -94,8 +116,9 @@ class ThreadRow(Gtk.Box):
         self.authors.set_markup(authors)
 
         shown_tags = [t for t in ts.tags if t not in cfg.hidden_tags]
-        tag_markup = tagutils.concat_tags_color(shown_tags, pango=True,
-                                                maxlen=cfg.tags_length)
+        tag_markup = tagutils.concat_tags_color(
+            shown_tags, pango=True, maxlen=cfg.tags_length,
+            alpha=cfg.tags_alpha, upper=cfg.tags_upper, lower=cfg.tags_lower)
         subject = html.escape(ts.subject)
         if bold:
             subject = f"<b>{subject}</b>"

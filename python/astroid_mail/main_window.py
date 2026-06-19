@@ -196,8 +196,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
         k.register_key("c", "main_window.compose", "Compose new message",
                        self._key_compose)
-        k.register_key("L", "main_window.show_log", "Show log view",
-                       self._key_show_log)
+        k.register_key("z", "main_window.show_log", "Show log view",
+                       self._key_show_log, aliases=["L"])
 
         k.register_key("P", "main_window.poll", "Poll for new mail",
                        lambda _k: (self.app.poll.poll(), True)[1])
