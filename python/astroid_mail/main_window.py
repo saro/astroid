@@ -30,6 +30,17 @@ class MainWindow(Gtk.ApplicationWindow):
         self.notebook.set_vexpand(True)
         self.box.append(self.notebook)
 
+        # poll spinner in the top-right of the tab bar (spins while poll.sh
+        # is running), mirroring the C++ Notebook action widget.
+        self.poll_spinner = Gtk.Spinner()
+        self.poll_spinner.set_margin_start(4)
+        self.poll_spinner.set_margin_end(6)
+        self.poll_spinner.set_tooltip_text("Polling for new mail…")
+        self.poll_spinner.set_visible(False)
+        self.notebook.set_action_widget(self.poll_spinner, Gtk.PackType.END)
+        if getattr(self.app, "poll", None) is not None:
+            self.app.poll.connect("poll-state", self._on_poll_state)
+
         # yes/no prompt
         self.rev_yes_no = Gtk.Revealer()
         prompt = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -84,6 +95,14 @@ class MainWindow(Gtk.ApplicationWindow):
         if page < 0:
             return None
         return self.notebook.get_nth_page(page)
+
+    def _on_poll_state(self, _poll, polling: bool) -> None:
+        if polling:
+            self.poll_spinner.set_visible(True)
+            self.poll_spinner.start()
+        else:
+            self.poll_spinner.stop()
+            self.poll_spinner.set_visible(False)
 
     def close_page(self, force: bool = False) -> None:
         mode = self.current_mode()

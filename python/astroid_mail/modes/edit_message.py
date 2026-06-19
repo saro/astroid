@@ -189,6 +189,14 @@ class EditMessage(Mode):
         self.thread_view.set_vexpand(True)
         self.append(self.thread_view)
 
+        # Escape from any header field returns focus to the preview so the
+        # single-key commands (y/s/x/...) work again. A capture-phase
+        # controller on the compose box sees Escape before the entry.
+        esc = Gtk.EventControllerKey()
+        esc.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        esc.connect("key-pressed", self._on_capture_key)
+        self.add_controller(esc)
+
         # ---- wire compose signals ----
         self.compose.connect("message-send-status", self._on_send_status)
         self.compose.connect("message-sent", self._on_message_sent)
@@ -427,6 +435,27 @@ class EditMessage(Mode):
                     self._rebuild_preview()
         dlg.open(self.main_window, None, done)
         return True
+
+    # -- focus -----------------------------------------------------------------
+
+    def grab_modal(self) -> None:
+        # Focus the preview (like the C++): the header fields are edited in
+        # the external editor, so default focus on a Gtk.Entry would
+        # otherwise swallow the single-key commands (y/s/x/...).
+        self._focus_preview()
+
+    def _focus_preview(self) -> None:
+        try:
+            self.thread_view.webview.grab_focus()
+        except Exception:
+            self.grab_focus()
+
+    def _on_capture_key(self, _ctrl, keyval, _code, _state) -> bool:
+        from gi.repository import Gdk
+        if keyval == Gdk.KEY_Escape:
+            self._focus_preview()
+            return True
+        return False
 
     # -- editor cycle ---------------------------------------------------------
 

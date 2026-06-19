@@ -161,6 +161,27 @@ def main() -> int:
 
     def step_log_shot():
         shoot(outdir / "05_log_view.png")
+        GLib.timeout_add(300, step_spinner)
+        return False
+
+    def step_spinner():
+        # write a slow poll.sh, kick a poll, and screenshot the index while
+        # the spinner is running in the top-right of the tab bar.
+        import stat as _stat
+        win = app.get_active_window()
+        # back to a thread-index tab
+        win.notebook.set_current_page(0)
+        cfg_dir = app.config.std_paths.config_dir
+        script = cfg_dir / "poll.sh"
+        script.write_text("#!/bin/sh\nsleep 3\necho done\n")
+        script.chmod(script.stat().st_mode | _stat.S_IEXEC)
+        app.poll.poll()
+        GLib.timeout_add(600, step_spinner_shot)
+        return False
+
+    def step_spinner_shot():
+        shoot(outdir / "06_poll_spinner.png")
+        app.poll.cancel_poll()
         GLib.timeout_add(300, finish)
         return False
 

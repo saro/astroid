@@ -70,7 +70,9 @@ def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="astroid-smoke-"))
     config_file, captured = setup_env(tmp)
 
-    from gi.repository import GLib, Gdk
+    import gi
+    gi.require_version("Gtk", "4.0")
+    from gi.repository import GLib, Gdk, Gtk
     from astroid_mail.app import Astroid
 
     app = Astroid()
@@ -156,7 +158,24 @@ def main() -> int:
             body = captured.read_text(errors="replace")
             results["captured_has_to"] = "smoke@example.org" in body
             results["captured_has_msgid"] = "Message-Id:" in body
-        GLib.timeout_add(500, finish)
+        GLib.timeout_add(500, stage_close_compose)
+        return False
+
+    def stage_close_compose():
+        from gi.repository import Gdk
+        from astroid_mail.modes.edit_message import EditMessage
+        win = app.get_active_window()
+        # open a fresh compose, confirm preview holds focus (not a Gtk.Entry),
+        # then 'x' closes the tab.
+        win._key_compose(None)
+        em = win.current_mode()
+        results["compose_opened"] = isinstance(em, EditMessage)
+        results["focus_not_entry"] = not isinstance(win.get_focus(), Gtk.Entry)
+        pages_before = win.notebook.get_n_pages()
+        win._on_key_pressed(None, Gdk.KEY_x, 0, Gdk.ModifierType(0))
+        results["compose_closed"] = (win.notebook.get_n_pages()
+                                     == pages_before - 1)
+        GLib.timeout_add(300, finish)
         return False
 
     def finish():
@@ -182,6 +201,9 @@ def main() -> int:
           and results.get("captured_exists")
           and results.get("captured_has_to")
           and results.get("captured_has_msgid")
+          and results.get("compose_opened")
+          and results.get("focus_not_entry")
+          and results.get("compose_closed")
           and not results["errors"])
     print()
     print(f"  threads loaded     {results['threads']}")
@@ -192,6 +214,9 @@ def main() -> int:
     print(f"  sendmail captured  {results.get('captured_exists', False)}")
     print(f"  capture has To     {results.get('captured_has_to', False)}")
     print(f"  capture has MsgId  {results.get('captured_has_msgid', False)}")
+    print(f"  compose opened     {results.get('compose_opened', False)}")
+    print(f"  preview focused    {results.get('focus_not_entry', False)}")
+    print(f"  x closes compose   {results.get('compose_closed', False)}")
     print(f"  errors             {results['errors'] or 'none'}")
     print()
     print("SMOKE PASSED" if ok else "SMOKE FAILED")
