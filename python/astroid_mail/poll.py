@@ -40,6 +40,9 @@ class Poll(GObject.Object):
         self.external_polling = False
         self.before_poll_revision = 0
         self.last_poll = 0.0
+        # set while a poll.sh subprocess is running
+        self._proc: subprocess.Popen | None = None
+        self._proc_lock = threading.Lock()
 
         self.poll_interval = config.config.get_int("poll.interval")
         self.full_refresh = config.config.get_bool("poll.always_full_refresh")
@@ -99,14 +102,26 @@ class Poll(GObject.Object):
     def _run_poll_script(self, script) -> None:
         t0 = time.monotonic()
         try:
+            # start_new_session so SIGTERM/SIGKILL reaches the whole
+            # process group of poll.sh (which typically forks
+            # offlineimap/mbsync/notmuch new under itself).
             p = subprocess.Popen([str(script)], stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE, text=True)
+                                 stderr=subprocess.PIPE, text=True,
+                                 start_new_session=True)
         except OSError as e:
             log.error("poll: exception while running poll script: %s", e)
             self._dispatch(self._poll_done, 1)
             return
 
-        stdout, stderr = p.communicate()
+        with self._proc_lock:
+            self._proc = p
+
+        try:
+            stdout, stderr = p.communicate()
+        finally:
+            with self._proc_lock:
+                self._proc = None
+
         for line in stdout.splitlines():
             if line.strip():
                 log.debug("poll script: %s", line.strip())
@@ -120,6 +135,44 @@ class Poll(GObject.Object):
             log.error("poll: poll script did not exit successfully.")
 
         self._dispatch(self._poll_done, p.returncode)
+
+    def cancel_poll(self) -> bool:
+        """Kill the running poll.sh (and its process group) if any.
+
+        Port of ``Poll::cancel_poll`` (src/poll.cc:126).  Returns True iff a
+        process was actually signalled.  Safe to call when nothing is
+        polling.
+        """
+        import os
+        import signal
+
+        with self._proc_lock:
+            p = self._proc
+
+        if p is None or p.poll() is not None:
+            log.info("poll: cancel_poll: no poll script running.")
+            return False
+
+        log.warning("poll: cancel polling pid: %s", p.pid)
+        try:
+            # SIGTERM the whole session so children die too; the wait
+            # below escalates to SIGKILL after a short grace period.
+            os.killpg(p.pid, signal.SIGTERM)
+        except (OSError, ProcessLookupError) as e:
+            log.error("poll: could not signal poll script: %s", e)
+            return False
+
+        try:
+            p.wait(timeout=1.5)
+            log.warning("poll: poll script killed.")
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(p.pid, signal.SIGKILL)
+                log.warning("poll: poll script killed (SIGKILL).")
+            except (OSError, ProcessLookupError) as e:
+                log.error("poll: could not SIGKILL poll script: %s", e)
+                return False
+        return True
 
     def _poll_done(self, _status) -> bool:
         """GUI thread: signal refresh."""
@@ -145,9 +198,11 @@ class Poll(GObject.Object):
         try:
             with Db(Db.READ_ONLY) as db:
                 revnow = db.get_revision()
-                log.debug("poll: refreshing.. revision after poll: %s", revnow)
+                log.info("poll: refresh: revision %s -> %s",
+                         self.before_poll_revision, revnow)
 
                 if revnow <= self.before_poll_revision:
+                    log.info("poll: revision did not change; nothing to refresh.")
                     return
 
                 query = f"lastmod:{self.before_poll_revision}..{revnow}"
@@ -158,6 +213,7 @@ class Poll(GObject.Object):
                     tids = [t.threadid
                             for t in db.threads(query, exclude=False)]
                     for tid in tids:
+                        log.debug("poll: emit thread-updated %s", tid)
                         self.actions.emit_thread_updated(db, tid)
         except Exception as e:
             log.error("poll: refresh failed: %s", e)

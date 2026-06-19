@@ -202,6 +202,10 @@ class MainWindow(Gtk.ApplicationWindow):
         k.register_key("P", "main_window.poll", "Poll for new mail",
                        lambda _k: (self.app.poll.poll(), True)[1])
 
+        k.register_key("C-c", "main_window.cancel_poll",
+                       "Cancel the running poll script",
+                       lambda _k: (self.app.poll.cancel_poll(), True)[1])
+
         k.register_key("?", "main_window.show_help", "Show help",
                        self._key_help)
 
