@@ -156,9 +156,12 @@ def main() -> int:
             # save draft
             saved = em._save_draft()
             results["draft_saved"] = bool(saved)
-            # ensure To: is set so send doesn't ask yes/no
+            # set recipient, then send through the real confirm path:
+            # _do_send() must raise a yes/no prompt and only send on 'y'.
             em._to_entry.set_text("smoke@example.org")
-            em._send_now()
+            em._do_send()
+            results["send_confirm_prompt"] = win._yes_no_waiting
+            win.answer_yes_no(True)   # confirm
             GLib.timeout_add(2000, stage_check_sent, em)
         else:
             GLib.timeout_add(1500, finish)
@@ -177,12 +180,16 @@ def main() -> int:
         from gi.repository import Gdk
         from astroid_mail.modes.edit_message import EditMessage
         win = app.get_active_window()
-        # open a fresh compose, confirm preview holds focus (not a Gtk.Entry),
-        # then 'x' closes the tab.
         win._key_compose(None)
         em = win.current_mode()
         results["compose_opened"] = isinstance(em, EditMessage)
-        results["focus_not_entry"] = not isinstance(win.get_focus(), Gtk.Entry)
+        # focus must be the compose mode widget (so the window key controller
+        # receives keys), not a header Entry or the webview.
+        focus = win.get_focus()
+        results["focus_on_mode"] = (focus is em
+                                    or (focus is not None
+                                        and focus.is_ancestor(em) is False
+                                        and not isinstance(focus, Gtk.Entry)))
         pages_before = win.notebook.get_n_pages()
         win._on_key_pressed(None, Gdk.KEY_x, 0, Gdk.ModifierType(0))
         results["compose_closed"] = (win.notebook.get_n_pages()
@@ -214,9 +221,10 @@ def main() -> int:
           and results.get("captured_has_to")
           and results.get("captured_has_msgid")
           and results.get("compose_opened")
-          and results.get("focus_not_entry")
+          and results.get("focus_on_mode")
           and results.get("compose_closed")
           and results.get("html_remote_ok")
+          and results.get("send_confirm_prompt")
           and not results["errors"])
     print()
     print(f"  threads loaded     {results['threads']}")
@@ -224,11 +232,12 @@ def main() -> int:
     print(f"  reply invoked      {results.get('reply_invoked', False)}")
     print(f"  edit message open  {results.get('edit_message_opened', False)}")
     print(f"  draft saved        {results.get('draft_saved', False)}")
+    print(f"  send confirm shown {results.get('send_confirm_prompt', False)}")
     print(f"  sendmail captured  {results.get('captured_exists', False)}")
     print(f"  capture has To     {results.get('captured_has_to', False)}")
     print(f"  capture has MsgId  {results.get('captured_has_msgid', False)}")
     print(f"  compose opened     {results.get('compose_opened', False)}")
-    print(f"  preview focused    {results.get('focus_not_entry', False)}")
+    print(f"  focus on mode      {results.get('focus_on_mode', False)}")
     print(f"  x closes compose   {results.get('compose_closed', False)}")
     print(f"  H/I handlers ok    {results.get('html_remote_ok', False)}")
     print(f"  errors             {results['errors'] or 'none'}")

@@ -345,11 +345,16 @@ class EditMessage(Mode):
         if self.sending:
             return True
         self._sync_compose_from_ui()
+
         if not self.compose.to.strip():
             self.ask_yes_no("No recipient. Send anyway?",
                             lambda yes: yes and self._send_now())
             return True
-        self._send_now()
+
+        # always confirm before sending
+        to = self.compose.to.strip()
+        self.ask_yes_no(f"Send message to {to}?",
+                        lambda yes: self._send_now() if yes else None)
         return True
 
     def _send_now(self) -> None:
@@ -439,16 +444,16 @@ class EditMessage(Mode):
     # -- focus -----------------------------------------------------------------
 
     def grab_modal(self) -> None:
-        # Focus the preview (like the C++): the header fields are edited in
-        # the external editor, so default focus on a Gtk.Entry would
-        # otherwise swallow the single-key commands (y/s/x/...).
+        # Keep focus on the compose mode widget itself, not a header
+        # Gtk.Entry or the preview webview, so the single-key commands
+        # (y send / s save / x close / D delete...) always reach the window
+        # key controller. Headers are edited in the external editor; click a
+        # field to edit it inline, Escape returns focus here.
         self._focus_preview()
 
     def _focus_preview(self) -> None:
-        try:
-            self.thread_view.webview.grab_focus()
-        except Exception:
-            self.grab_focus()
+        self.set_focusable(True)
+        self.grab_focus()
 
     def _on_capture_key(self, _ctrl, keyval, _code, _state) -> bool:
         from gi.repository import Gdk

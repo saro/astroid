@@ -493,7 +493,12 @@ class ThreadView(Mode):
     # -- mode interface ----------------------------------------------------------
 
     def grab_modal(self) -> None:
-        self.webview.grab_focus()
+        # Keep keyboard focus on the mode widget (not the WebKitWebView):
+        # all navigation is driven by JS via page_client, and a normal
+        # focusable widget guarantees the window key controller receives
+        # every keystroke (a focused webview can swallow keys natively).
+        self.set_focusable(True)
+        self.grab_focus()
 
     def on_message_changed(self, db: Db, mid: str) -> None:
         """thread-changed/message-updated handler: refresh tags display."""

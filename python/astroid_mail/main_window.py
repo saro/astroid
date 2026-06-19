@@ -185,43 +185,26 @@ class MainWindow(Gtk.ApplicationWindow):
                 return bool(kb.handle(keyval, state))
             return True
 
-        # command bar has its own controller; skip when focused
+        # the command bar (search / tag entry) has its own controller and
+        # needs free text input; let it handle keys while it is open.
         if self.command.get_search_mode():
             return False
 
-        # if a typing widget (Gtk.Entry / Gtk.Text / Gtk.TextView) is focused
-        # and the user is typing a plain printable key without modifiers,
-        # let the widget consume it. Modifier combos (C-c, M-x...) and
-        # navigation keys (Escape, Return, Tab) still flow to our commands.
-        if self._focus_is_typing_widget(keyval, state):
-            return False
-
-        # active mode first
+        # Keybindings always win (same model as the C++ MainWindow::
+        # on_key_press): try the active mode's keys, then the window keys.
+        # A key that is bound is consumed here and never reaches the focused
+        # widget (webview / header entry); only *unbound* keys fall through
+        # so they can be typed. This is why x / D / y work regardless of
+        # which compose widget holds focus.
         mode = self.current_mode()
         if mode is not None and mode.get_keys().handle(keyval, state):
             return True
 
-        return bool(self.keys.handle(keyval, state))
+        if self.keys.handle(keyval, state):
+            return True
 
-    @staticmethod
-    def _is_typing_widget(w) -> bool:
-        if w is None:
-            return False
-        return (isinstance(w, (Gtk.Editable, Gtk.TextView))
-                or (Gtk.Text and isinstance(w, Gtk.Text)))
-
-    def _focus_is_typing_widget(self, keyval: int,
-                                state: Gdk.ModifierType) -> bool:
-        if state & (Gdk.ModifierType.CONTROL_MASK
-                    | Gdk.ModifierType.ALT_MASK):
-            return False  # modifier combos always reach our handlers
-        if not self._is_typing_widget(self.get_focus()):
-            return False
-        # Escape / Return / Tab / function keys are commands, not text input.
-        u = Gdk.keyval_to_unicode(keyval)
-        if u == 0:
-            return False
-        return chr(u).isprintable() or keyval == Gdk.KEY_space
+        # unbound: let the focused widget (e.g. a header entry) handle it
+        return False
 
     # -- window keys -------------------------------------------------------------------
 
