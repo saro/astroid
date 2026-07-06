@@ -76,7 +76,12 @@ def text_to_html(text: str) -> str:
 
 
 class Chunk:
-    def __init__(self, mime_object, preferred_type: str = "plain"):
+    # set by the app at startup so parsing can decrypt/verify (models must
+    # not import the config machinery themselves)
+    config = None
+
+    def __init__(self, mime_object, preferred_type: str = "plain",
+                 encrypted: bool = False, signed: bool = False, crypt=None):
         self.id = _next_id()
         self.mime_object = mime_object
         self.preferred_type = preferred_type
@@ -89,9 +94,9 @@ class Chunk:
         self.attachment = False
         self.mime_message = False
 
-        self.issigned = False
-        self.isencrypted = False
-        self.crypt = None
+        self.issigned = signed
+        self.isencrypted = encrypted
+        self.crypt = crypt
 
         self.content_id = ""
         self.content_type = None
@@ -123,7 +128,55 @@ class Chunk:
         subtype = (self.content_type.get_media_subtype() or "").lower() \
             if self.content_type else ""
 
-        kids = [Chunk(mp.get_part(i), self.preferred_type)
+        # multipart/encrypted and multipart/signed (port of chunk.cc:140-187)
+        if isinstance(mp, (GMime.MultipartEncrypted, GMime.MultipartSigned)) \
+                and Chunk.config is not None:
+            from ..crypto import Crypto
+            protocol = ""
+            if self.content_type is not None:
+                protocol = self.content_type.get_parameter("protocol") or ""
+            self.crypt = Crypto(Chunk.config, protocol)
+            if not self.crypt.ready:
+                log.error("chunk: no crypto ready.")
+
+        if isinstance(mp, GMime.MultipartEncrypted) and self.crypt is not None \
+                and self.crypt.ready:
+            log.warning("chunk: is encrypted.")
+            self.isencrypted = True
+
+            if mp.get_count() != 2:
+                log.error("chunk: encrypted message with not exactly 2 parts.")
+                return
+
+            decrypted = self.crypt.decrypt_and_verify(mp)
+            if decrypted is not None:
+                self.kids = [Chunk(decrypted, self.preferred_type,
+                                   encrypted=True,
+                                   signed=self.crypt.verify_tried,
+                                   crypt=self.crypt)]
+            else:
+                # displayed as a failed-to-decrypt part
+                self.viewable = True
+                self.preferred = True
+            return
+
+        if isinstance(mp, GMime.MultipartSigned) and self.crypt is not None \
+                and self.crypt.ready:
+            log.warning("chunk: is signed.")
+            self.issigned = True
+
+            self.crypt.verify_signature(mp)
+
+            # only show the content part (index 0)
+            content = mp.get_part(0)
+            self.kids = [Chunk(content, self.preferred_type,
+                               encrypted=False, signed=True,
+                               crypt=self.crypt)]
+            return
+
+        kids = [Chunk(mp.get_part(i), self.preferred_type,
+                      encrypted=self.isencrypted, signed=self.issigned,
+                      crypt=self.crypt)
                 for i in range(mp.get_count())]
 
         if subtype == "alternative":
@@ -141,7 +194,6 @@ class Chunk:
                 k.preferred = k is chosen
             self.kids = kids
         else:
-            # encrypted/signed handled in Phase 3 (crypto); show kids
             self.kids = kids
 
     def _parse_message_part(self, mp: GMime.MessagePart) -> None:

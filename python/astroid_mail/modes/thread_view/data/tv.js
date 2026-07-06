@@ -148,8 +148,36 @@ window.Astroid = (function () {
     container.appendChild(part);
   }
 
+  function crypto_marker(m, c, container) {
+    // status box for signed / encrypted parts (uses encrypt_template)
+    if (!c.signature && !c.encryption) return;
+    const tpl = document.getElementById("encrypt_template");
+    const e = tpl.cloneNode(true);
+    e.removeAttribute("id");
+    e.id = "encrypt_" + m.mid + "_" + c.id;
+    const lines = [];
+    if (c.encryption) {
+      e.classList.add(c.encryption.decrypted ? "decrypted" : "decrypt_failed");
+      lines.push(c.encryption.decrypted
+                 ? "Encrypted message (decrypted)"
+                 : "Encrypted message: decryption FAILED");
+      for (const s of (c.encryption.enc_strings || [])) lines.push(s);
+    }
+    if (c.signature) {
+      e.classList.add(c.signature.verified ? "verified" : "verify_failed");
+      if (!lines.length)
+        lines.push(c.signature.verified
+                   ? "Signed message (verified)"
+                   : "Signed message: signature NOT verified");
+      for (const s of (c.signature.sign_strings || [])) lines.push(s);
+    }
+    e.querySelector(".message").innerText = lines.join("\n");
+    container.appendChild(e);
+  }
+
   function walk_chunks(m, c, container) {
     if (!c) return;
+    crypto_marker(m, c, container);
     if (c.viewable && c.use) {
       create_body_part(m, c, container);
     } else if (c.viewable) {

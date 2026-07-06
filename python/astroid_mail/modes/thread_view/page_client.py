@@ -271,6 +271,26 @@ class PageClient:
 
     def _chunk_summary(self, c) -> dict:
         size = c.get_file_size()
+
+        # crypto status only on the wrapper chunk itself, so the thread view
+        # shows exactly one marker per multipart/encrypted|signed container
+        # (kids inherit the crypt object but must not repeat the marker)
+        signature = None
+        encryption = None
+        if c.crypt is not None and c.mime_type in ("multipart/encrypted",
+                                                   "multipart/signed"):
+            if c.crypt.verify_tried:
+                signature = {
+                    "verified": c.crypt.verified,
+                    "sign_strings": list(c.crypt.sign_strings),
+                    "all_errors": list(c.crypt.sig_errors),
+                }
+            if c.crypt.decrypt_tried:
+                encryption = {
+                    "decrypted": c.crypt.decrypted,
+                    "enc_strings": list(c.crypt.enc_strings),
+                }
+
         return {
             "id": c.id,
             "sid": str(c.id),
@@ -281,6 +301,8 @@ class PageClient:
             "attachment": c.attachment,
             "is_encrypted": c.isencrypted,
             "is_signed": c.issigned,
+            "signature": signature,
+            "encryption": encryption,
             "sibling": bool(c.siblings),
             "use": True,
             "focusable": True,

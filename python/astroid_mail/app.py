@@ -106,12 +106,14 @@ class Astroid(Gtk.Application):
         from .actions import ActionManager
         from .db import Db
         from .keybindings import Keybindings
+        from .models.chunk import Chunk
         from .poll import Poll
         from .utils.cmd import Cmd
         from .utils.resource import Resource
 
         Resource.config_dir = self.config.std_paths.config_dir
         Cmd.config_dir = self.config.std_paths.config_dir
+        Chunk.config = self.config  # enables decrypt/verify while parsing
 
         Keybindings.init(self.config.std_paths.config_dir)
 

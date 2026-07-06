@@ -328,8 +328,32 @@ class ComposeMessage(GObject.Object):
                     multi.add(part)
             self.message.set_mime_part(multi)
 
-        # crypto handled in Phase 3 -- noop here
-        self.encryption_success = not (self.encrypt or self.sign)
+        # encryption / signing (port of compose_message.cc:399-428)
+        self.encryption_success = True
+        self.encryption_error = ""
+
+        if self.encrypt or self.sign:
+            from .crypto import Crypto
+
+            content = self.message.get_mime_part()
+            cy = Crypto(self.config, "application/pgp-encrypted")
+
+            if self.encrypt:
+                recipients = ", ".join(
+                    x for x in (self.to, self.cc, self.bcc) if x)
+                wrapped, err = cy.encrypt(content, self.sign,
+                                          self.account.gpgkey,
+                                          self.from_addr, recipients)
+            else:
+                wrapped, err = cy.sign(content, self.account.gpgkey)
+
+            if wrapped is not None:
+                self.message.set_mime_part(wrapped)
+                self.encryption_success = True
+            else:
+                self.encryption_success = False
+                self.encryption_error = err
+                log.error("cm: failed encrypting or signing: %s", err)
 
     def _build_attachment_part(self, att: Attachment) -> GMime.Object | None:
         if att.is_mime_message:

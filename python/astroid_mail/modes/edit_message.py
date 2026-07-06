@@ -368,6 +368,16 @@ class EditMessage(Mode):
             self.sending = False
             self._on_send_status(None, True, f"build failed: {e}")
             return
+        if (self.compose.encrypt or self.compose.sign) \
+                and not self.compose.encryption_success:
+            log.error("em: encryption failed: %s",
+                      self.compose.encryption_error)
+            self.sending = False
+            self._on_send_status(
+                None, True,
+                f"not sent: encryption/signing failed: "
+                f"{self.compose.encryption_error}")
+            return
         self.compose.send_threaded()
 
     # -- draft handling --------------------------------------------------------
