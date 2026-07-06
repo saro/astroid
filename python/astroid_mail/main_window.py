@@ -114,8 +114,15 @@ class MainWindow(Gtk.ApplicationWindow):
         if mode is None:
             return
         if mode.invincible and not force:
+            log.debug("mw: not closing invincible page: %s", mode.get_label())
             return
-        mode.pre_close()
+        log.info("mw: closing page: %s", mode.get_label())
+        try:
+            mode.pre_close()
+        except Exception as e:
+            # closing must never be blocked by cleanup failures
+            # (e.g. draft save with a missing save_drafts_to)
+            log.error("mw: pre_close failed (%s); closing anyway", e)
         self.notebook.remove_page(self.notebook.get_current_page())
         if self.notebook.get_n_pages() == 0:
             self.close()
@@ -137,6 +144,12 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def ask_yes_no(self, question: str, closure) -> None:
         log.info("mw: ask yes/no: %s", question)
+        if self._yes_no_waiting or self._multi_waiting:
+            # port of the C++ guard: never stack prompts — a stacked prompt
+            # would swallow all keys with no visible question
+            log.warning("mw: already waiting for an answer, discarding "
+                        "this question")
+            return
         self._yes_no_waiting = True
         self._yes_no_closure = closure
         self.label_yes_no.set_text(question)
@@ -196,12 +209,20 @@ class MainWindow(Gtk.ApplicationWindow):
         # widget (webview / header entry); only *unbound* keys fall through
         # so they can be typed. This is why x / D / y work regardless of
         # which compose widget holds focus.
+        #
+        # A handler exception must never leak out of the signal callback:
+        # PyGObject would swallow it and the key would silently do nothing.
         mode = self.current_mode()
-        if mode is not None and mode.get_keys().handle(keyval, state):
-            return True
+        try:
+            if mode is not None and mode.get_keys().handle(keyval, state):
+                return True
 
-        if self.keys.handle(keyval, state):
-            return True
+            if self.keys.handle(keyval, state):
+                return True
+        except Exception as e:
+            log.error("mw: key handler failed for %s: %s",
+                      Gdk.keyval_name(keyval), e)
+            return True  # consumed: a broken handler shouldn't type text
 
         # unbound: let the focused widget (e.g. a header entry) handle it
         return False

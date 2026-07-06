@@ -381,20 +381,24 @@ class EditMessage(Mode):
             log.error("em: draft build failed: %s", e)
             return False
 
-        if self.draft_msg is not None and self.draft_msg.in_notmuch:
-            target = Path(self.draft_msg.filename)
-            self.compose.write_to_file(target)
-            log.info("em: overwrote existing draft at %s", target)
-        else:
-            ddir = self.account.save_drafts_to
-            if ddir is None:
-                log.error("em: no save_drafts_to configured for account %s",
-                          self.account.id)
-                return False
-            ddir.mkdir(parents=True, exist_ok=True)
-            target = ddir / safe_fname(self.msg_id)
-            self.compose.write_to_file(target)
-            self.app.actions.doit(AddDraftMessage(target))
+        try:
+            if self.draft_msg is not None and self.draft_msg.in_notmuch:
+                target = Path(self.draft_msg.filename)
+                self.compose.write_to_file(target)
+                log.info("em: overwrote existing draft at %s", target)
+            else:
+                ddir = self.account.save_drafts_to
+                if ddir is None:
+                    log.error("em: no save_drafts_to configured for account %s",
+                              self.account.id)
+                    return False
+                ddir.mkdir(parents=True, exist_ok=True)
+                target = ddir / safe_fname(self.msg_id)
+                self.compose.write_to_file(target)
+                self.app.actions.doit(AddDraftMessage(target))
+        except OSError as e:
+            log.error("em: could not write draft: %s", e)
+            return False
 
         self.draft_saved = True
         self._on_send_status(None, False, f"draft saved: {target}")
@@ -546,6 +550,23 @@ class EditMessage(Mode):
         k.register_key("Return", "edit_message.edit",
                        "Edit message in editor",
                        lambda _k: self._toggle_editor())
+
+        # navigate the drafted email in the embedded preview
+        pc = self.thread_view.page_client
+        k.register_key("j", "edit_message.down",
+                       "Scroll preview down",
+                       lambda _k: (pc.navigate("down", "visual"), True)[1],
+                       aliases=["Down"])
+        k.register_key("k", "edit_message.up",
+                       "Scroll preview up",
+                       lambda _k: (pc.navigate("up", "visual"), True)[1],
+                       aliases=["Up"])
+        k.register_key("J", "edit_message.page_down", "Scroll preview page down",
+                       lambda _k: (pc.navigate("down", "visual_page"), True)[1],
+                       aliases=["Page_Down"])
+        k.register_key("K", "edit_message.page_up", "Scroll preview page up",
+                       lambda _k: (pc.navigate("up", "visual_page"), True)[1],
+                       aliases=["Page_Up"])
         k.register_key("y", "edit_message.send", "Send message",
                        lambda _k: self._do_send())
         k.register_key("C-c", "edit_message.cancel", "Cancel send",

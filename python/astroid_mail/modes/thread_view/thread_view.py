@@ -8,6 +8,7 @@ extension); link clicks intercepted via decide-policy.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import gi
 
@@ -273,8 +274,9 @@ class ThreadView(Mode):
                           "Toggle expand on focused message",
                           self._key_toggle_expand)
         keys.register_key("Return", "thread_view.activate",
-                          "Activate / expand focused message",
-                          self._key_toggle_expand,
+                          "Open focused element (attachment) or "
+                          "toggle expand on the message",
+                          self._key_activate,
                           aliases=["KP_Enter"])
         keys.register_key("C-e", "thread_view.toggle_expand_all",
                           "Toggle expand on all messages",
@@ -348,6 +350,51 @@ class ThreadView(Mode):
         log.info("tv: remote images %s",
                  "enabled" if self.remote_images_allowed else "disabled")
         self.page_client.set_remote_images(self.remote_images_allowed)
+        return True
+
+    def _key_activate(self, k) -> bool:
+        """Enter: open the focused element if it is an attachment, else
+        toggle expand on the message (port of element_action EEnter)."""
+        m = self.focused_message
+        if m is None:
+            return True
+        st = self.state.get(m, {})
+        idx = st.get("current_element", 0)
+        elements = st.get("elements", [])
+        if 0 < idx < len(elements):
+            el = elements[idx]
+            if el.type == "attachment":
+                return self._open_attachment(m, el.id)
+        return self._key_toggle_expand(k)
+
+    def _open_attachment(self, m, chunk_id: int) -> bool:
+        """Save the attachment to a tmp dir and open it with
+        attachment.external_open_cmd (xdg-open by default)."""
+        import subprocess
+        import tempfile
+
+        c = m.get_chunk_by_id(chunk_id)
+        if c is None:
+            log.error("tv: no chunk %s in message %s", chunk_id, m.mid)
+            return True
+
+        from ...utils.misc import safe_fname
+        tmpdir = Path(tempfile.mkdtemp(prefix="astroid-attachment-"))
+        fname = safe_fname(c.get_filename() or f"attachment-{c.id}")
+        target = tmpdir / fname
+        try:
+            c.save_to(target)
+        except OSError as e:
+            log.error("tv: could not save attachment: %s", e)
+            return True
+
+        cmd = self.config.config.get_str("attachment.external_open_cmd",
+                                         "xdg-open")
+        log.info("tv: opening attachment %s with %s", target, cmd)
+        try:
+            subprocess.Popen([cmd, str(target)])
+        except OSError as e:
+            log.error("tv: could not open attachment: %s", e)
         return True
 
     def _key_toggle_expand(self, k) -> bool:

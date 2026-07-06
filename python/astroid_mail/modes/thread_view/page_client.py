@@ -253,6 +253,20 @@ class PageClient:
                     st["elements"].append(
                         Element(ElementType.Attachment, c.id, m.safe_mid()))
 
+        if not keep_state and msg["attachments"]:
+            # attachments come right after the message header in j/k order
+            # (attachments are also displayed before the body): reorder to
+            # Empty/MimeMessage -> Attachment -> Part/Encryption
+            els = st["elements"]
+            front = [e for e in els
+                     if e.type in (ElementType.Empty, ElementType.MimeMessage)]
+            atts = [e for e in els if e.type == ElementType.Attachment]
+            rest = [e for e in els
+                    if e.type not in (ElementType.Empty,
+                                      ElementType.MimeMessage,
+                                      ElementType.Attachment)]
+            st["elements"] = front + atts + rest
+
         return msg
 
     def _chunk_summary(self, c) -> dict:
