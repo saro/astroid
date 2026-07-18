@@ -73,8 +73,10 @@ def test_space_bindings_dispatch(no_user_bindings):
     assert hits == ["down", "up"]
 
 
-def test_modes_bind_space_aliases(no_user_bindings):
-    """The four scrolling modes all alias space/S-space to page down/up."""
+def test_modes_bind_space_first_class(no_user_bindings):
+    """The four scrolling modes bind space/S-space as first-class named
+    bindings (spacebar_down/spacebar_up), NOT as aliases of page_down/up —
+    a user override of <mode>.page_down must not drop the space keys."""
     import inspect
     from astroid_mail.modes.thread_view import thread_view
     from astroid_mail.modes.thread_index import thread_index
@@ -84,3 +86,36 @@ def test_modes_bind_space_aliases(no_user_bindings):
         src = inspect.getsource(mod)
         assert '"space"' in src, mod.__name__
         assert '"S-space"' in src, mod.__name__
+        assert "spacebar_down" in src, mod.__name__
+        assert "spacebar_up" in src, mod.__name__
+
+
+def test_space_survives_page_down_user_override(no_user_bindings):
+    """A user keybindings line overriding page_down replaces its key and
+    drops its aliases (C++ semantics) — space must keep working because it
+    is registered under its own name."""
+    keys = Keybindings(title="t")
+    Keybindings.user_bindings = [
+        # user rebinds t.page_down to 'd': default key J and aliases dropped
+        _user_key("t.page_down", "d"),
+    ]
+    hits = []
+    keys.register_key("J", "t.page_down", "down",
+                      lambda k: hits.append("pd") or True,
+                      aliases=["Page_Down"])
+    keys.register_key("space", "t.spacebar_down", "down (spacebar)",
+                      lambda k: hits.append("space") or True)
+
+    # the old alias route would be dead now; the named binding still fires
+    assert keys.handle(Gdk.KEY_space, Gdk.ModifierType(0))
+    assert hits == ["space"]
+    # and the user's chosen key works for page_down
+    assert keys.handle(Gdk.KEY_d, Gdk.ModifierType(0))
+    assert hits == ["space", "pd"]
+
+
+def _user_key(name, spec):
+    k = Key.from_spec(spec)
+    k.name = name
+    k.userdefined = True
+    return k

@@ -573,10 +573,18 @@ class EditMessage(Mode):
                        aliases=["Up"])
         k.register_key("J", "edit_message.page_down", "Scroll preview page down",
                        lambda _k: (pc.navigate("down", "visual_page"), True)[1],
-                       aliases=["Page_Down", "space"])
+                       aliases=["Page_Down"])
         k.register_key("K", "edit_message.page_up", "Scroll preview page up",
                        lambda _k: (pc.navigate("up", "visual_page"), True)[1],
-                       aliases=["Page_Up", "S-space"])
+                       aliases=["Page_Up"])
+        # first-class bindings (not aliases of page_down/up) so user overrides
+        # of those names cannot silently drop the space keys
+        k.register_key("space", "edit_message.spacebar_down",
+                       "Scroll preview page down (spacebar)",
+                       lambda _k: (pc.navigate("down", "visual_page"), True)[1])
+        k.register_key("S-space", "edit_message.spacebar_up",
+                       "Scroll preview page up (shift+spacebar)",
+                       lambda _k: (pc.navigate("up", "visual_page"), True)[1])
         k.register_key("y", "edit_message.send", "Send message",
                        lambda _k: self._do_send())
         k.register_key("C-c", "edit_message.cancel", "Cancel send",

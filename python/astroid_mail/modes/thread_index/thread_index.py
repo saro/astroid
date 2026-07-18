@@ -157,10 +157,18 @@ class ThreadIndex(Mode):
                           aliases=["Up"])
         keys.register_key("J", "thread_index.page_down", "Page down",
                           lambda k: (self._move_cursor(self.page_jump_rows), True)[1],
-                          aliases=["Page_Down", "space"])
+                          aliases=["Page_Down"])
         keys.register_key("K", "thread_index.page_up", "Page up",
                           lambda k: (self._move_cursor(-self.page_jump_rows), True)[1],
-                          aliases=["Page_Up", "S-space"])
+                          aliases=["Page_Up"])
+        # first-class bindings (not aliases of page_down/up) so user overrides
+        # of those names cannot silently drop the space keys
+        keys.register_key("space", "thread_index.spacebar_down",
+                          "Page down (spacebar)",
+                          lambda k: (self._move_cursor(self.page_jump_rows), True)[1])
+        keys.register_key("S-space", "thread_index.spacebar_up",
+                          "Page up (shift+spacebar)",
+                          lambda k: (self._move_cursor(-self.page_jump_rows), True)[1])
         keys.register_key("1", "thread_index.scroll_home", "Scroll to first thread",
                           lambda k: (self._select_abs(0), True)[1],
                           aliases=["Home"])

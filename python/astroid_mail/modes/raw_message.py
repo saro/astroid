@@ -78,10 +78,18 @@ class RawMessage(Mode):
                        lambda _k: self._scroll(-35), aliases=["Up"])
         k.register_key("J", "raw.page_down", "Page down",
                        lambda _k: self._scroll(400),
-                       aliases=["Page_Down", "space"])
+                       aliases=["Page_Down"])
         k.register_key("K", "raw.page_up", "Page up",
                        lambda _k: self._scroll(-400),
-                       aliases=["Page_Up", "S-space"])
+                       aliases=["Page_Up"])
+        # first-class bindings (not aliases of page_down/up) so user overrides
+        # of those names cannot silently drop the space keys
+        k.register_key("space", "raw.spacebar_down",
+                       "Page down (spacebar)",
+                       lambda _k: self._scroll(400))
+        k.register_key("S-space", "raw.spacebar_up",
+                       "Page up (shift+spacebar)",
+                       lambda _k: self._scroll(-400))
         k.register_key("1", "raw.home", "Scroll to top",
                        lambda _k: (self.scroll.get_vadjustment().set_value(0),
                                    True)[1],

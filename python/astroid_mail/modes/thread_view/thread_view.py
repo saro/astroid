@@ -242,7 +242,14 @@ class ThreadView(Mode):
                           lambda k: (pc.navigate("down", "visual_big"), True)[1])
         keys.register_key("C-d", "thread_view.page_down", "Page down",
                           lambda k: (pc.navigate("down", "visual_page"), True)[1],
-                          aliases=["Page_Down", "space"])
+                          aliases=["Page_Down"])
+        # first-class binding (not an alias of page_down) so a user override
+        # of thread_view.page_down cannot silently drop the space key
+        keys.register_key("space", "thread_view.spacebar_down",
+                          "Page down (spacebar)",
+                          lambda k: (log.debug("tv: spacebar page down"),
+                                     pc.navigate("down", "visual_page"),
+                                     True)[2])
 
         keys.register_key("k", "thread_view.up",
                           "Scroll up or move focus to previous element",
@@ -255,7 +262,12 @@ class ThreadView(Mode):
                           lambda k: (pc.navigate("up", "visual_big"), True)[1])
         keys.register_key("C-u", "thread_view.page_up", "Page up",
                           lambda k: (pc.navigate("up", "visual_page"), True)[1],
-                          aliases=["Page_Up", "S-space"])
+                          aliases=["Page_Up"])
+        keys.register_key("S-space", "thread_view.spacebar_up",
+                          "Page up (shift+spacebar)",
+                          lambda k: (log.debug("tv: spacebar page up"),
+                                     pc.navigate("up", "visual_page"),
+                                     True)[2])
 
         keys.register_key("1", "thread_view.home", "Scroll home",
                           lambda k: (pc.navigate("up", "extreme"), True)[1],
