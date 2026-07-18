@@ -79,9 +79,14 @@ class MainWindow(Gtk.ApplicationWindow):
 
     # -- modes -------------------------------------------------------------------
 
-    def add_mode(self, mode) -> int:
+    def add_mode(self, mode, parent=None) -> int:
         tab = Gtk.Label(label=mode.get_label() or "?")
         mode.tab_widget = tab
+        # remember which mode spawned this one so closing returns there
+        # (thread view -> its thread index, compose -> its thread view, ...)
+        if parent is None:
+            parent = self.current_mode()
+        mode.parent_mode = parent
         page = self.notebook.append_page(mode, tab)
         self.notebook.set_current_page(page)
         mode.grab_modal()
@@ -126,10 +131,19 @@ class MainWindow(Gtk.ApplicationWindow):
         self.notebook.remove_page(self.notebook.get_current_page())
         if self.notebook.get_n_pages() == 0:
             self.close()
-        else:
-            m = self.current_mode()
-            if m:
-                m.grab_modal()
+            return
+
+        # navigate back to the mode this page was opened from, when it is
+        # still around (e.g. thread view -> the thread list it came from)
+        parent = getattr(mode, "parent_mode", None)
+        if parent is not None:
+            idx = self.notebook.page_num(parent)
+            if idx >= 0:
+                self.notebook.set_current_page(idx)
+
+        m = self.current_mode()
+        if m:
+            m.grab_modal()
 
     def _on_switch_page(self, notebook, page, num) -> None:
         GLib.idle_add(lambda: (page.grab_modal(), False)[1])

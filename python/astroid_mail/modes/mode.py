@@ -17,6 +17,8 @@ class Mode(Gtk.Box):
         self.keys = Keybindings()
         self.invincible = False
         self.label = ""
+        # the mode this one was opened from; close_page returns there
+        self.parent_mode = None
 
     def set_label(self, label: str) -> None:
         # tab labels are elided in the middle like the C++ (max 35 chars)

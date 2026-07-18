@@ -194,7 +194,32 @@ def main() -> int:
         win._on_key_pressed(None, Gdk.KEY_x, 0, Gdk.ModifierType(0))
         results["compose_closed"] = (win.notebook.get_n_pages()
                                      == pages_before - 1)
-        GLib.timeout_add(300, finish)
+        GLib.timeout_add(300, stage_back_navigation)
+        return False
+
+    def stage_back_navigation():
+        # closing a thread view must return to the index it was opened from,
+        # not just the adjacent tab: index A (page 0), index B (last page),
+        # open a thread from A -> close it -> back on A.
+        from astroid_mail.modes.thread_index.thread_index import ThreadIndex
+        win = app.get_active_window()
+
+        win.add_mode(ThreadIndex(win, "tag:inbox", name="second"))
+        win.notebook.set_current_page(0)
+        first = win.current_mode()
+
+        def open_and_close():
+            first.selection.set_selected(0)
+            first.open_thread()
+            def close_tv():
+                win.close_page(force=True)
+                results["back_to_origin"] = win.current_mode() is first
+                GLib.timeout_add(300, finish)
+                return False
+            GLib.timeout_add(1500, close_tv)
+            return False
+
+        GLib.timeout_add(400, open_and_close)
         return False
 
     def finish():
@@ -224,6 +249,7 @@ def main() -> int:
           and results.get("focus_on_mode")
           and results.get("compose_closed")
           and results.get("html_remote_ok")
+          and results.get("back_to_origin")
           and results.get("send_confirm_prompt")
           and not results["errors"])
     print()
@@ -240,6 +266,7 @@ def main() -> int:
     print(f"  focus on mode      {results.get('focus_on_mode', False)}")
     print(f"  x closes compose   {results.get('compose_closed', False)}")
     print(f"  H/I handlers ok    {results.get('html_remote_ok', False)}")
+    print(f"  back to origin     {results.get('back_to_origin', False)}")
     print(f"  errors             {results['errors'] or 'none'}")
     print()
     print("SMOKE PASSED" if ok else "SMOKE FAILED")
