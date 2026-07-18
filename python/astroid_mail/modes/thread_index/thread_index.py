@@ -157,10 +157,10 @@ class ThreadIndex(Mode):
                           aliases=["Up"])
         keys.register_key("J", "thread_index.page_down", "Page down",
                           lambda k: (self._move_cursor(self.page_jump_rows), True)[1],
-                          aliases=["Page_Down"])
+                          aliases=["Page_Down", "space"])
         keys.register_key("K", "thread_index.page_up", "Page up",
                           lambda k: (self._move_cursor(-self.page_jump_rows), True)[1],
-                          aliases=["Page_Up"])
+                          aliases=["Page_Up", "S-space"])
         keys.register_key("1", "thread_index.scroll_home", "Scroll to first thread",
                           lambda k: (self._select_abs(0), True)[1],
                           aliases=["Home"])

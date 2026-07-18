@@ -117,6 +117,33 @@ def main() -> int:
         print(f"real: selection {results['sel_before_j']} -> "
               f"{results['sel_after_j']} (j_moved={results['j_moved']})",
               flush=True)
+
+        # space pages down, shift+space pages up (real key events)
+        results["sel_before_space"] = ti.selection.get_selected()
+        xdo("key", "--clearmodifiers", "space")
+        GLib.timeout_add(800, stage_check_space)
+        return False
+
+    def stage_check_space():
+        win = app.get_active_window()
+        ti = win.current_mode()
+        after_space = ti.selection.get_selected()
+        results["space_moved_down"] = after_space > results["sel_before_space"]
+        print(f"real: space {results['sel_before_space']} -> {after_space} "
+              f"(down={results['space_moved_down']})", flush=True)
+
+        results["sel_before_sspace"] = after_space
+        xdo("key", "shift+space")
+        GLib.timeout_add(800, stage_check_shift_space)
+        return False
+
+    def stage_check_shift_space():
+        win = app.get_active_window()
+        ti = win.current_mode()
+        after = ti.selection.get_selected()
+        results["sspace_moved_up"] = after < results["sel_before_sspace"]
+        print(f"real: shift+space {results['sel_before_sspace']} -> {after} "
+              f"(up={results['sspace_moved_up']})", flush=True)
         app.quit()
         return False
 
@@ -129,8 +156,11 @@ def main() -> int:
     app.run(["astroid", "--config", str(config_file), "--no-auto-poll"])
 
     ok = results.get("closed_by_x") and results.get("j_moved") \
+        and results.get("space_moved_down") and results.get("sspace_moved_up") \
         and not results["errors"]
     print()
+    print(f"  space pages down (real key)  {results.get('space_moved_down')}")
+    print(f"  S-space pages up (real key)  {results.get('sspace_moved_up')}")
     print(f"  x closes compose (real key)  {results.get('closed_by_x')}")
     print(f"  j moves selection (real key) {results.get('j_moved')}")
     print(f"  errors                       {results['errors'] or 'none'}")

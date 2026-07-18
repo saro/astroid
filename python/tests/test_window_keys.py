@@ -27,6 +27,7 @@ class _CmdBar:
 class _Win:
     """Minimal stand-in exercising MainWindow._on_key_pressed."""
     _on_key_pressed = MainWindow._on_key_pressed
+    _focus_wants_text = MainWindow._focus_wants_text
 
     def __init__(self, mode_keys=None, win_keys=None, searching=False):
         self._yes_no_waiting = False
@@ -38,6 +39,9 @@ class _Win:
 
     def current_mode(self):
         return self._mode
+
+    def get_focus(self):
+        return None  # no typing widget focused in these tests
 
 
 def _kb(name, spec):

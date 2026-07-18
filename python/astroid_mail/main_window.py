@@ -217,12 +217,18 @@ class MainWindow(Gtk.ApplicationWindow):
         if self.command.get_search_mode():
             return False
 
+        # A focused text field (compose To:/Subject:, clicked deliberately)
+        # gets plain printable keys and space for typing; Escape hands
+        # focus back to the mode. Default focus is the mode widget itself,
+        # so commands work everywhere else.
+        if self._focus_wants_text(keyval, state):
+            return False
+
         # Keybindings always win (same model as the C++ MainWindow::
         # on_key_press): try the active mode's keys, then the window keys.
         # A key that is bound is consumed here and never reaches the focused
-        # widget (webview / header entry); only *unbound* keys fall through
-        # so they can be typed. This is why x / D / y work regardless of
-        # which compose widget holds focus.
+        # widget (webview); only *unbound* keys fall through so they can be
+        # typed. This is why x / D / y work regardless of focus.
         #
         # A handler exception must never leak out of the signal callback:
         # PyGObject would swallow it and the key would silently do nothing.
@@ -240,6 +246,20 @@ class MainWindow(Gtk.ApplicationWindow):
 
         # unbound: let the focused widget (e.g. a header entry) handle it
         return False
+
+    def _focus_wants_text(self, keyval: int, state: Gdk.ModifierType) -> bool:
+        """True when a text-input widget has focus and the key is plain
+        typing input (printable or space, no ctrl/alt)."""
+        if state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK):
+            return False
+        w = self.get_focus()
+        if w is None or not isinstance(w, (Gtk.Editable, Gtk.Text,
+                                           Gtk.TextView)):
+            return False
+        if keyval == Gdk.KEY_space:
+            return True
+        u = Gdk.keyval_to_unicode(keyval)
+        return u != 0 and chr(u).isprintable()
 
     # -- window keys -------------------------------------------------------------------
 

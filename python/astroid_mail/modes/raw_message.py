@@ -78,10 +78,10 @@ class RawMessage(Mode):
                        lambda _k: self._scroll(-35), aliases=["Up"])
         k.register_key("J", "raw.page_down", "Page down",
                        lambda _k: self._scroll(400),
-                       aliases=["Page_Down"])
+                       aliases=["Page_Down", "space"])
         k.register_key("K", "raw.page_up", "Page up",
                        lambda _k: self._scroll(-400),
-                       aliases=["Page_Up"])
+                       aliases=["Page_Up", "S-space"])
         k.register_key("1", "raw.home", "Scroll to top",
                        lambda _k: (self.scroll.get_vadjustment().set_value(0),
                                    True)[1],

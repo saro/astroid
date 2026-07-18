@@ -573,10 +573,10 @@ class EditMessage(Mode):
                        aliases=["Up"])
         k.register_key("J", "edit_message.page_down", "Scroll preview page down",
                        lambda _k: (pc.navigate("down", "visual_page"), True)[1],
-                       aliases=["Page_Down"])
+                       aliases=["Page_Down", "space"])
         k.register_key("K", "edit_message.page_up", "Scroll preview page up",
                        lambda _k: (pc.navigate("up", "visual_page"), True)[1],
-                       aliases=["Page_Up"])
+                       aliases=["Page_Up", "S-space"])
         k.register_key("y", "edit_message.send", "Send message",
                        lambda _k: self._do_send())
         k.register_key("C-c", "edit_message.cancel", "Cancel send",

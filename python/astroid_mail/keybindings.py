@@ -43,6 +43,7 @@ class DuplicateKeyError(Exception):
 class Key:
     ctrl: bool = False
     meta: bool = False
+    shift: bool = False
     key: int = 0
 
     name: str = ""
@@ -72,44 +73,48 @@ class Key:
         if spec == "-":
             parts = ["-"]
 
-        if len(parts) > 3:
+        # modifiers: C- (ctrl), M- (alt), S- (shift — python extension; only
+        # meaningful for caseless keys like space where shift does not
+        # already produce a distinct keyval)
+        if len(parts) > 4:
             log.error("key spec invalid: %s", spec)
             raise KeySpecError("invalid length of spec")
 
         k = cls(name=name, help=help)
 
-        if len(parts) == 1:
-            k.key = cls.get_keyval(parts[0])
-            return k
+        for part in parts[:-1]:
+            m = part[:1]
+            if m not in ("C", "M", "S"):
+                log.error("key spec invalid: %s", spec)
+                raise KeySpecError("invalid modifier in key spec")
+            already = {"C": k.ctrl, "M": k.meta, "S": k.shift}[m]
+            if already:
+                log.error("key spec invalid: %s", spec)
+                raise KeySpecError("modifier already specified")
+            if m == "C":
+                k.ctrl = True
+            elif m == "M":
+                k.meta = True
+            else:
+                k.shift = True
 
-        m = parts[0][:1]
-        if m not in ("C", "M"):
-            log.error("key spec invalid: %s", spec)
-            raise KeySpecError("invalid modifier in key spec")
-        k.ctrl = m == "C"
-        k.meta = m == "M"
-
-        if len(parts) == 2:
-            k.key = cls.get_keyval(parts[1])
-            return k
-
-        m = parts[1][:1]
-        if m not in ("C", "M"):
-            log.error("key spec invalid: %s", spec)
-            raise KeySpecError("invalid modifier in key spec")
-        if (m == "C" and k.ctrl) or (m == "M" and k.meta):
-            log.error("key spec invalid: %s", spec)
-            raise KeySpecError("modifier already specified")
-        k.ctrl = k.ctrl or m == "C"
-        k.meta = k.meta or m == "M"
-
-        k.key = cls.get_keyval(parts[2])
+        k.key = cls.get_keyval(parts[-1])
         return k
 
     @classmethod
     def from_event(cls, keyval: int, state: Gdk.ModifierType) -> "Key":
+        # Record shift only for caseless keyvals (space, arrows, ...): for
+        # letters shift is already consumed producing the upper-case keyval,
+        # and ISO_Left_Tab encodes Shift+Tab in the keyval itself.
+        shift = bool(state & Gdk.ModifierType.SHIFT_MASK)
+        if shift:
+            caseless = (Gdk.keyval_to_upper(keyval)
+                        == Gdk.keyval_to_lower(keyval))
+            if not caseless or keyval == Gdk.KEY_ISO_Left_Tab:
+                shift = False
         return cls(ctrl=bool(state & Gdk.ModifierType.CONTROL_MASK),
                    meta=bool(state & Gdk.ModifierType.ALT_MASK),
+                   shift=shift,
                    key=keyval)
 
     # -- representation -------------------------------------------------------
@@ -120,6 +125,8 @@ class Key:
             s += "C-"
         if self.meta:
             s += "M-"
+        if self.shift:
+            s += "S-"
 
         u = Gdk.keyval_to_unicode(self.key)
         c = chr(u) if u else ""
@@ -137,7 +144,7 @@ class Key:
         return self.spec()
 
     def _id(self) -> tuple:
-        return (self.ctrl, self.meta, self.key)
+        return (self.ctrl, self.meta, self.shift, self.key)
 
     def __eq__(self, other) -> bool:
         return isinstance(other, Key) and self._id() == other._id()
@@ -325,10 +332,10 @@ class Keybindings:
                 log.debug("ky: key: %s dropped.", k.spec() if not k.unbound else name)
                 return
 
-            k = Key(ctrl=uk.ctrl, meta=uk.meta, key=uk.key,
+            k = Key(ctrl=uk.ctrl, meta=uk.meta, shift=uk.shift, key=uk.key,
                     unbound=False, userdefined=True,
                     allow_duplicate_name=k.allow_duplicate_name)
-            aliases = [Key(ctrl=a.ctrl, meta=a.meta, key=a.key, userdefined=True)
+            aliases = [Key(ctrl=a.ctrl, meta=a.meta, shift=a.shift, key=a.key, userdefined=True)
                        for a in user[1:]]
 
         if k.unbound:
@@ -426,7 +433,7 @@ class Keybindings:
             log.info("ky: run, binding: %s(%s) to: %s, %s",
                      name, k.spec(), target, undo_target)
             self.register_key(
-                Key(ctrl=k.ctrl, meta=k.meta, key=k.key,
+                Key(ctrl=k.ctrl, meta=k.meta, shift=k.shift, key=k.key,
                     userdefined=True, allow_duplicate_name=True),
                 k.name,
                 f"Run hook: {target},{undo_target}",

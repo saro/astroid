@@ -242,7 +242,7 @@ class ThreadView(Mode):
                           lambda k: (pc.navigate("down", "visual_big"), True)[1])
         keys.register_key("C-d", "thread_view.page_down", "Page down",
                           lambda k: (pc.navigate("down", "visual_page"), True)[1],
-                          aliases=["Page_Down"])
+                          aliases=["Page_Down", "space"])
 
         keys.register_key("k", "thread_view.up",
                           "Scroll up or move focus to previous element",
@@ -255,7 +255,7 @@ class ThreadView(Mode):
                           lambda k: (pc.navigate("up", "visual_big"), True)[1])
         keys.register_key("C-u", "thread_view.page_up", "Page up",
                           lambda k: (pc.navigate("up", "visual_page"), True)[1],
-                          aliases=["Page_Up"])
+                          aliases=["Page_Up", "S-space"])
 
         keys.register_key("1", "thread_view.home", "Scroll home",
                           lambda k: (pc.navigate("up", "extreme"), True)[1],
