@@ -65,6 +65,8 @@ class ThreadRow(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.cfg = cfg
         self.marked = False
+        self.selected = False
+        self._ts: ThreadSummary | None = None
 
         self.icons = Gtk.Label()
         self.icons.set_width_chars(2)
@@ -94,8 +96,16 @@ class ThreadRow(Gtk.Box):
         self.append(self.authors)
         self.append(self.main)
 
+    def set_selected(self, selected: bool) -> None:
+        if selected == self.selected:
+            return
+        self.selected = selected
+        if self._ts is not None:
+            self.bind(self._ts)
+
     def bind(self, ts: ThreadSummary) -> None:
         cfg = self.cfg
+        self._ts = ts
 
         icons = ""
         if ts.flagged:
@@ -123,7 +133,9 @@ class ThreadRow(Gtk.Box):
         if bold:
             subject = f"<b>{subject}</b>"
         else:
-            subject = f'<span color="{cfg.subject_color}">{subject}</span>'
+            color = (cfg.subject_color_selected if self.selected
+                     else cfg.subject_color)
+            subject = f'<span color="{color}">{subject}</span>'
 
         sep = "  " if tag_markup else ""
         self.main.set_markup(f"{tag_markup}{sep}{subject}")

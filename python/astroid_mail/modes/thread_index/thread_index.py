@@ -18,24 +18,32 @@ from ..mode import Mode  # noqa: E402
 from .query_loader import QueryLoader, ThreadItem, sort_from_name  # noqa: E402
 from .row_widget import RowConfig, ThreadRow  # noqa: E402
 
-_no_hover_installed = False
+_css_installed = False
 
 
-def _install_no_hover_css() -> None:
-    """Install (once per display) a CSS provider that removes the mouse
-    hover highlight on thread-index rows."""
-    global _no_hover_installed
-    if _no_hover_installed:
+def _install_css() -> None:
+    """Install (once per display) a CSS provider for thread-index rows:
+    no mouse-hover highlight, and the selection always drawn in the
+    focused (blue) selection colour — the theme greys it out when the
+    list widget itself doesn't hold keyboard focus, which it never does
+    in our keyboard-driven UI (the mode widget has focus)."""
+    global _css_installed
+    if _css_installed:
         return
     display = Gdk.Display.get_default()
     if display is None:
         return
     provider = Gtk.CssProvider()
     provider.load_from_data(
-        b"listview.astroid-no-hover row:hover { background: none; }")
+        b"listview.astroid-no-hover row:hover { background: none; }"
+        b"listview.astroid-no-hover row:selected,"
+        b"listview.astroid-no-hover row:selected:hover {"
+        b"  background-color: @theme_selected_bg_color;"
+        b"  color: @theme_selected_fg_color;"
+        b"}")
     Gtk.StyleContext.add_provider_for_display(
         display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-    _no_hover_installed = True
+    _css_installed = True
 
 
 class ThreadIndex(Mode):
@@ -65,7 +73,7 @@ class ThreadIndex(Mode):
         self.list_view.connect("activate", self._on_activate)
         # drop the theme's mouse-hover highlight on rows (keyboard-driven UI)
         self.list_view.add_css_class("astroid-no-hover")
-        _install_no_hover_css()
+        _install_css()
 
         self.scroll = Gtk.ScrolledWindow()
         self.scroll.set_child(self.list_view)
@@ -89,10 +97,15 @@ class ThreadIndex(Mode):
 
     def _on_setup(self, factory, item) -> None:
         item.set_child(ThreadRow(self.row_config))
+        # repaint the subject in subject_color_selected while selected
+        item.connect(
+            "notify::selected",
+            lambda it, _p: it.get_child().set_selected(it.get_selected()))
 
     def _on_bind(self, factory, item) -> None:
         row: ThreadRow = item.get_child()
         ti: ThreadItem = item.get_item()
+        row.set_selected(item.get_selected())
         row.bind(ti.summary)
 
     # -- signals ------------------------------------------------------------------
