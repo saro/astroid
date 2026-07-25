@@ -24,15 +24,15 @@ class CommandBar(Gtk.SearchBar):
         self.mode = self.MODE_SEARCH
         self._callback = None
 
-        # SearchBar centers its child by default: expand the box to the
-        # full width and keep it left-aligned instead.
+        # SearchBar centers its child by default: expand the box across the
+        # whole window width, with the entry taking all remaining space.
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         box.set_hexpand(True)
-        box.set_halign(Gtk.Align.START)
         box.set_margin_start(6)
+        box.set_margin_end(6)
         self.mode_label = Gtk.Label()
         self.entry = Gtk.Entry()
-        self.entry.set_width_chars(80)
+        self.entry.set_hexpand(True)
         box.append(self.mode_label)
         box.append(self.entry)
         self.set_child(box)
