@@ -233,6 +233,10 @@ class MainWindow(Gtk.ApplicationWindow):
         # A handler exception must never leak out of the signal callback:
         # PyGObject would swallow it and the key would silently do nothing.
         mode = self.current_mode()
+        log.debug("mw: key %s (focus: %s, mode: %s)",
+                  Gdk.keyval_name(keyval),
+                  type(self.get_focus()).__name__,
+                  type(mode).__name__)
         try:
             if mode is not None and mode.get_keys().handle(keyval, state):
                 return True
@@ -276,8 +280,15 @@ class MainWindow(Gtk.ApplicationWindow):
         k.register_key("b", "main_window.previous_page", "Previous page",
                        lambda _k: self._switch_page(-1))
 
-        k.register_key("x", "main_window.close_page", "Close mode (or window)",
-                       lambda _k: (self.close_page(), True)[1])
+        # same primary binding as the C++ main window: C-w closes, C-W
+        # force-closes. Being ctrl-combos they work even while a text
+        # entry has focus. 'x' is kept as a convenience alias.
+        k.register_key("C-w", "main_window.close_page", "Close mode (or window)",
+                       lambda _k: (self.close_page(), True)[1],
+                       aliases=["x"])
+        k.register_key("C-W", "main_window.close_page_force",
+                       "Close mode (or window), also if invincible",
+                       lambda _k: (self.close_page(force=True), True)[1])
 
         k.register_key("F", "main_window.search", "Search",
                        lambda _k: (self.enable_search(), True)[1],

@@ -189,6 +189,12 @@ class EditMessage(Mode):
         self.thread_view.set_vexpand(True)
         self.append(self.thread_view)
 
+        # Enter in a header field: back to command mode (single-key
+        # commands work again) and refresh the preview with the new value.
+        for entry in (self._to_entry, self._cc_entry, self._bcc_entry,
+                      self._subject_entry):
+            entry.connect("activate", self._on_header_activate)
+
         # Escape from any header field returns focus to the preview so the
         # single-key commands (y/s/x/...) work again. A capture-phase
         # controller on the compose box sees Escape before the entry.
@@ -468,6 +474,10 @@ class EditMessage(Mode):
     def _focus_preview(self) -> None:
         self.set_focusable(True)
         self.grab_focus()
+
+    def _on_header_activate(self, _entry) -> None:
+        self._focus_preview()
+        self._rebuild_preview()
 
     def _on_capture_key(self, _ctrl, keyval, _code, _state) -> bool:
         from gi.repository import Gdk

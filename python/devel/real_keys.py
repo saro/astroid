@@ -144,6 +144,33 @@ def main() -> int:
         results["sspace_moved_up"] = after < results["sel_before_sspace"]
         print(f"real: shift+space {results['sel_before_sspace']} -> {after} "
               f"(up={results['sspace_moved_up']})", flush=True)
+
+        # C-w must close the compose window even while a header entry has
+        # focus (the trap where plain keys just type into the field)
+        win._key_compose(None)
+        results["pages_before_cw"] = win.notebook.get_n_pages()
+        GLib.timeout_add(1000, stage_press_ctrl_w)
+        return False
+
+    def stage_press_ctrl_w():
+        win = app.get_active_window()
+        em = win.current_mode()
+        # grab AFTER the switch-page idle re-grab, so the entry keeps focus
+        em._to_entry.grab_focus()
+        print(f"real: focus before C-w = {type(win.get_focus()).__name__}",
+              flush=True)
+        xdo("search", "--name", "Astroid", "windowfocus", "--sync")
+        xdo("type", "user@example.com")
+        xdo("key", "ctrl+w")
+        GLib.timeout_add(1500, stage_check_ctrl_w)
+        return False
+
+    def stage_check_ctrl_w():
+        win = app.get_active_window()
+        pages = win.notebook.get_n_pages()
+        results["closed_by_ctrl_w"] = pages == results["pages_before_cw"] - 1
+        print(f"real: pages {results['pages_before_cw']} -> {pages} "
+              f"(closed_by_ctrl_w={results['closed_by_ctrl_w']})", flush=True)
         app.quit()
         return False
 
@@ -157,11 +184,12 @@ def main() -> int:
 
     ok = results.get("closed_by_x") and results.get("j_moved") \
         and results.get("space_moved_down") and results.get("sspace_moved_up") \
-        and not results["errors"]
+        and results.get("closed_by_ctrl_w") and not results["errors"]
     print()
     print(f"  space pages down (real key)  {results.get('space_moved_down')}")
     print(f"  S-space pages up (real key)  {results.get('sspace_moved_up')}")
     print(f"  x closes compose (real key)  {results.get('closed_by_x')}")
+    print(f"  C-w closes compose from entry {results.get('closed_by_ctrl_w')}")
     print(f"  j moves selection (real key) {results.get('j_moved')}")
     print(f"  errors                       {results['errors'] or 'none'}")
     print()
